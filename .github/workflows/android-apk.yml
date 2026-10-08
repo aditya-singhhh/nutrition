@@ -18,7 +18,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx expo prebuild --platform android --no-install
         env: {CI: "1", EXPO_NO_TELEMETRY: "1"}
-      - name: Build release APK (signed with the debug key: fine for sideloading, not for Play Store)
+      - name: "Build release APK (debug-signed, for sideloading only)"
         run: ./gradlew assembleRelease --no-daemon
         working-directory: mobile/android
       - uses: actions/upload-artifact@v4
