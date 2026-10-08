@@ -1,0 +1,178 @@
+[
+ {
+  "barcode": "8900000000012",
+  "brand": "DemoBrand",
+  "name": "Demo Glucose Biscuits",
+  "category": "biscuit",
+  "serving_g": 25,
+  "nutrients_per_100g": {
+   "energy_kcal": 450,
+   "protein_g": 6.5,
+   "carbs_g": 77,
+   "fat_g": 12.5,
+   "sat_fat_g": 6.0,
+   "fiber_g": 1.5,
+   "sugar_g": 24,
+   "sodium_mg": 330
+  },
+  "ingredients_text": "Wheat flour (maida) 62%, sugar, edible vegetable oil (palm), invert syrup, milk solids, raising agents (INS 500(ii), INS 503(ii)), salt, emulsifier (INS 322 (soy lecithin)), artificial flavour (vanilla). Contains wheat, milk and soy.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000029",
+  "brand": "DemoBrand",
+  "name": "Demo Instant Noodles (Masala)",
+  "category": "noodles",
+  "serving_g": 70,
+  "nutrients_per_100g": {
+   "energy_kcal": 440,
+   "protein_g": 9.0,
+   "carbs_g": 61,
+   "fat_g": 17,
+   "sat_fat_g": 8.0,
+   "fiber_g": 2.5,
+   "sugar_g": 2.5,
+   "sodium_mg": 1750
+  },
+  "ingredients_text": "Noodles: Refined wheat flour (maida) 80%, palm oil, salt, thickener (INS 412), acidity regulators (INS 501(i), INS 500(i)). Tastemaker: Spices, salt, sugar, flavour enhancers (INS 627, INS 631), hydrolysed vegetable protein, colour (INS 150d). Contains wheat.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000036",
+  "brand": "DemoBrand",
+  "name": "Demo Cola",
+  "category": "beverage",
+  "serving_g": 250,
+  "nutrients_per_100g": {
+   "energy_kcal": 42,
+   "protein_g": 0,
+   "carbs_g": 10.6,
+   "fat_g": 0,
+   "sat_fat_g": 0,
+   "fiber_g": 0,
+   "sugar_g": 10.6,
+   "sodium_mg": 8
+  },
+  "ingredients_text": "Carbonated water, sugar, acidity regulator (INS 338), colour (INS 150d), caffeine, natural flavours.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000043",
+  "brand": "DemoBrand",
+  "name": "Demo Salted Potato Chips",
+  "category": "chips",
+  "serving_g": 30,
+  "nutrients_per_100g": {
+   "energy_kcal": 540,
+   "protein_g": 6.5,
+   "carbs_g": 52,
+   "fat_g": 34,
+   "sat_fat_g": 14,
+   "fiber_g": 4.0,
+   "sugar_g": 1.0,
+   "sodium_mg": 640
+  },
+  "ingredients_text": "Potato 75%, palmolein oil, salt, antioxidant (INS 319). May contain traces of milk.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000050",
+  "brand": "DemoBrand",
+  "name": "Demo Whole Wheat Bread",
+  "category": "bread",
+  "serving_g": 40,
+  "nutrients_per_100g": {
+   "energy_kcal": 255,
+   "protein_g": 10,
+   "carbs_g": 45,
+   "fat_g": 3.5,
+   "sat_fat_g": 0.9,
+   "fiber_g": 6.5,
+   "sugar_g": 4.0,
+   "sodium_mg": 450
+  },
+  "ingredients_text": "Whole wheat flour (atta) 80%, water, yeast, sugar, iodised salt, edible vegetable oil, preservative (INS 282), flour treatment agent (INS 300), emulsifier (INS 471). Contains wheat.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000067",
+  "brand": "DemoBrand",
+  "name": "Demo Rolled Oats",
+  "category": "cereal",
+  "serving_g": 40,
+  "nutrients_per_100g": {
+   "energy_kcal": 375,
+   "protein_g": 12.5,
+   "carbs_g": 63,
+   "fat_g": 7.0,
+   "sat_fat_g": 1.3,
+   "fiber_g": 10,
+   "sugar_g": 1.0,
+   "sodium_mg": 6
+  },
+  "ingredients_text": "Rolled oats 100%. May contain traces of wheat.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000074",
+  "brand": "DemoBrand",
+  "name": "Demo Peanut Butter (Crunchy)",
+  "category": "spread",
+  "serving_g": 32,
+  "nutrients_per_100g": {
+   "energy_kcal": 600,
+   "protein_g": 25,
+   "carbs_g": 17,
+   "fat_g": 48,
+   "sat_fat_g": 9.0,
+   "fiber_g": 6.0,
+   "sugar_g": 6.0,
+   "sodium_mg": 380
+  },
+  "ingredients_text": "Roasted peanuts 90%, sugar, iodised salt, edible vegetable oil. Contains peanuts.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ },
+ {
+  "barcode": "8900000000081",
+  "brand": "DemoBrand",
+  "name": "Demo Mixed Fruit Drink",
+  "category": "beverage",
+  "serving_g": 200,
+  "nutrients_per_100g": {
+   "energy_kcal": 55,
+   "protein_g": 0.1,
+   "carbs_g": 13.5,
+   "fat_g": 0,
+   "sat_fat_g": 0,
+   "fiber_g": 0.1,
+   "sugar_g": 13,
+   "sodium_mg": 12
+  },
+  "ingredients_text": "Water, sugar, mixed fruit puree 12%, acidity regulator (INS 330), preservative (INS 211), antioxidant (INS 300), colours (INS 110, INS 102), added flavours.",
+  "country": "IN",
+  "source": "demo_fixture",
+  "confidence": "demo_fixture",
+  "verified": false
+ }
+]

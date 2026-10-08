@@ -1,0 +1,28 @@
+# Local development only. Real secrets come from the environment / AWS Secrets Manager, never from this file.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: hc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: healthcompanion
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hc"]
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6379:6379"]
+  api:
+    build: ./backend
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      HC_ENV: dev
+      HC_DATABASE_URL: postgresql+psycopg://hc:${POSTGRES_PASSWORD}@db:5432/healthcompanion
+      HC_JWT_SECRET: ${HC_JWT_SECRET:?set HC_JWT_SECRET in .env}
+    ports: ["127.0.0.1:8000:8000"]
+volumes:
+  pgdata:

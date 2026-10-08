@@ -1,0 +1,672 @@
+{
+ "version": "2026.10-mvp",
+ "review_status": "NEEDS_REVIEW_BY_FOOD_SCIENTIST",
+ "categories": [
+  "generally_recognized",
+  "context_dependent",
+  "quantity_dependent",
+  "allergen_concern",
+  "high_concern",
+  "insufficient_evidence"
+ ],
+ "additives": [
+  {
+   "ins": "100",
+   "name": "Curcumin",
+   "function": "colour",
+   "category": "generally_recognized",
+   "explanation": "Natural turmeric-derived colour.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "curcumin"
+   ]
+  },
+  {
+   "ins": "101",
+   "name": "Riboflavin",
+   "function": "colour",
+   "category": "generally_recognized",
+   "explanation": "Vitamin B2 used as a yellow colour.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "riboflavin"
+   ]
+  },
+  {
+   "ins": "102",
+   "name": "Tartrazine",
+   "function": "colour",
+   "category": "context_dependent",
+   "explanation": "Synthetic yellow colour. Permitted within limits; EU requires a warning label about possible effects on children's activity and attention. Some sensitive people react to it.",
+   "evidence_source": "EU Reg. 1333/2008 Annex V (hyperactivity warning label); JECFA",
+   "names": [
+    "tartrazine"
+   ]
+  },
+  {
+   "ins": "110",
+   "name": "Sunset Yellow FCF",
+   "function": "colour",
+   "category": "context_dependent",
+   "explanation": "Synthetic orange colour. Permitted within limits; EU requires a hyperactivity warning label.",
+   "evidence_source": "EU Reg. 1333/2008 Annex V (hyperactivity warning label); JECFA",
+   "names": [
+    "sunset yellow"
+   ]
+  },
+  {
+   "ins": "122",
+   "name": "Carmoisine",
+   "function": "colour",
+   "category": "context_dependent",
+   "explanation": "Synthetic red colour. Permitted within limits; EU requires a hyperactivity warning label.",
+   "evidence_source": "EU Reg. 1333/2008 Annex V (hyperactivity warning label); JECFA",
+   "names": [
+    "carmoisine",
+    "azorubine"
+   ]
+  },
+  {
+   "ins": "124",
+   "name": "Ponceau 4R",
+   "function": "colour",
+   "category": "context_dependent",
+   "explanation": "Synthetic red colour. Permitted within limits; EU requires a hyperactivity warning label.",
+   "evidence_source": "EU Reg. 1333/2008 Annex V (hyperactivity warning label); JECFA",
+   "names": [
+    "ponceau 4r"
+   ]
+  },
+  {
+   "ins": "129",
+   "name": "Allura Red AC",
+   "function": "colour",
+   "category": "context_dependent",
+   "explanation": "Synthetic red colour. Permitted within limits; EU requires a hyperactivity warning label.",
+   "evidence_source": "EU Reg. 1333/2008 Annex V (hyperactivity warning label); JECFA",
+   "names": [
+    "allura red"
+   ]
+  },
+  {
+   "ins": "133",
+   "name": "Brilliant Blue FCF",
+   "function": "colour",
+   "category": "generally_recognized",
+   "explanation": "Synthetic blue colour, poorly absorbed; permitted within limits.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "brilliant blue"
+   ]
+  },
+  {
+   "ins": "150d",
+   "name": "Caramel colour IV (sulphite ammonia)",
+   "function": "colour",
+   "category": "quantity_dependent",
+   "explanation": "Widely used brown colour; acceptable within the established intake limit.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "caramel colour",
+    "caramel color",
+    "caramel iv"
+   ]
+  },
+  {
+   "ins": "160a",
+   "name": "Beta-carotene",
+   "function": "colour",
+   "category": "generally_recognized",
+   "explanation": "Provitamin A used as an orange colour.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "beta-carotene",
+    "beta carotene"
+   ]
+  },
+  {
+   "ins": "160b",
+   "name": "Annatto",
+   "function": "colour",
+   "category": "generally_recognized",
+   "explanation": "Natural colour from annatto seeds.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "annatto"
+   ]
+  },
+  {
+   "ins": "200",
+   "name": "Sorbic acid",
+   "function": "preservative",
+   "category": "generally_recognized",
+   "explanation": "Common mould/yeast inhibitor.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sorbic acid"
+   ]
+  },
+  {
+   "ins": "202",
+   "name": "Potassium sorbate",
+   "function": "preservative",
+   "category": "generally_recognized",
+   "explanation": "Common mould/yeast inhibitor.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "potassium sorbate"
+   ]
+  },
+  {
+   "ins": "211",
+   "name": "Sodium benzoate",
+   "function": "preservative",
+   "category": "quantity_dependent",
+   "explanation": "Common preservative; fine within the permitted limit. In acidic drinks with vitamin C it can form trace benzene, which manufacturers manage through formulation.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium benzoate"
+   ]
+  },
+  {
+   "ins": "220",
+   "name": "Sulphur dioxide",
+   "function": "preservative",
+   "category": "allergen_concern",
+   "explanation": "Sulphite: can trigger reactions in sulphite-sensitive people, including some people with asthma.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sulphur dioxide",
+    "sulfur dioxide"
+   ],
+   "allergen": "sulphites"
+  },
+  {
+   "ins": "223",
+   "name": "Sodium metabisulphite",
+   "function": "preservative",
+   "category": "allergen_concern",
+   "explanation": "Sulphite: can trigger reactions in sulphite-sensitive people.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium metabisulphite",
+    "sodium metabisulfite"
+   ],
+   "allergen": "sulphites"
+  },
+  {
+   "ins": "250",
+   "name": "Sodium nitrite",
+   "function": "preservative",
+   "category": "quantity_dependent",
+   "explanation": "Used in cured meats; acceptable within permitted limits, intake from processed meat is the consideration.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium nitrite"
+   ]
+  },
+  {
+   "ins": "260",
+   "name": "Acetic acid",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Vinegar acid.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "acetic acid"
+   ]
+  },
+  {
+   "ins": "270",
+   "name": "Lactic acid",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Naturally occurring acid.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "lactic acid"
+   ]
+  },
+  {
+   "ins": "296",
+   "name": "Malic acid",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Naturally occurring fruit acid.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "malic acid"
+   ]
+  },
+  {
+   "ins": "300",
+   "name": "Ascorbic acid",
+   "function": "antioxidant",
+   "category": "generally_recognized",
+   "explanation": "Vitamin C.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "ascorbic acid"
+   ]
+  },
+  {
+   "ins": "306",
+   "name": "Tocopherols",
+   "function": "antioxidant",
+   "category": "generally_recognized",
+   "explanation": "Vitamin E-type antioxidants.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "tocopherol"
+   ]
+  },
+  {
+   "ins": "319",
+   "name": "TBHQ",
+   "function": "antioxidant",
+   "category": "quantity_dependent",
+   "explanation": "Synthetic antioxidant for oils/snacks; acceptable within the permitted limit.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "tbhq",
+    "tertiary butylhydroquinone"
+   ]
+  },
+  {
+   "ins": "320",
+   "name": "BHA",
+   "function": "antioxidant",
+   "category": "quantity_dependent",
+   "explanation": "Synthetic antioxidant; acceptable within the permitted limit. IARC classes BHA as possibly carcinogenic (2B) at high experimental doses.",
+   "evidence_source": "JECFA; IARC Monographs",
+   "names": [
+    "bha",
+    "butylated hydroxyanisole"
+   ]
+  },
+  {
+   "ins": "321",
+   "name": "BHT",
+   "function": "antioxidant",
+   "category": "quantity_dependent",
+   "explanation": "Synthetic antioxidant; acceptable within the permitted limit.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "bht",
+    "butylated hydroxytoluene"
+   ]
+  },
+  {
+   "ins": "322",
+   "name": "Lecithin",
+   "function": "emulsifier",
+   "category": "generally_recognized",
+   "explanation": "Emulsifier, commonly derived from soy or sunflower. If soy-derived it is relevant for soy allergy.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "lecithin"
+   ]
+  },
+  {
+   "ins": "330",
+   "name": "Citric acid",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Naturally occurring acid.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "citric acid"
+   ]
+  },
+  {
+   "ins": "331",
+   "name": "Sodium citrates",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Citrate salts used as buffers.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium citrate"
+   ]
+  },
+  {
+   "ins": "338",
+   "name": "Phosphoric acid",
+   "function": "acidity regulator",
+   "category": "context_dependent",
+   "explanation": "Used in colas. Phosphate intake is a consideration for people with kidney disease.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "phosphoric acid"
+   ]
+  },
+  {
+   "ins": "339",
+   "name": "Sodium phosphates",
+   "function": "emulsifier/stabiliser",
+   "category": "context_dependent",
+   "explanation": "Phosphate intake is a consideration for people with kidney disease.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium phosphate"
+   ]
+  },
+  {
+   "ins": "341",
+   "name": "Calcium phosphates",
+   "function": "raising agent",
+   "category": "generally_recognized",
+   "explanation": "Common leavening/anti-caking salts.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "calcium phosphate"
+   ]
+  },
+  {
+   "ins": "407",
+   "name": "Carrageenan",
+   "function": "thickener",
+   "category": "context_dependent",
+   "explanation": "Seaweed-derived thickener permitted by regulators; some people report digestive discomfort.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "carrageenan"
+   ]
+  },
+  {
+   "ins": "412",
+   "name": "Guar gum",
+   "function": "thickener",
+   "category": "generally_recognized",
+   "explanation": "Soluble fibre thickener.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "guar gum"
+   ]
+  },
+  {
+   "ins": "414",
+   "name": "Gum arabic",
+   "function": "thickener",
+   "category": "generally_recognized",
+   "explanation": "Natural plant gum.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "gum arabic"
+   ]
+  },
+  {
+   "ins": "415",
+   "name": "Xanthan gum",
+   "function": "thickener",
+   "category": "generally_recognized",
+   "explanation": "Fermentation-derived thickener.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "xanthan gum"
+   ]
+  },
+  {
+   "ins": "440",
+   "name": "Pectin",
+   "function": "thickener",
+   "category": "generally_recognized",
+   "explanation": "Fruit-derived gelling agent.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "pectin"
+   ]
+  },
+  {
+   "ins": "452",
+   "name": "Polyphosphates",
+   "function": "emulsifier/stabiliser",
+   "category": "context_dependent",
+   "explanation": "Phosphate intake is a consideration for people with kidney disease.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "polyphosphate"
+   ]
+  },
+  {
+   "ins": "471",
+   "name": "Mono- and diglycerides of fatty acids",
+   "function": "emulsifier",
+   "category": "generally_recognized",
+   "explanation": "Common emulsifiers made from fats.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "mono and diglycerides",
+    "mono- and diglycerides",
+    "mono & diglycerides"
+   ]
+  },
+  {
+   "ins": "472e",
+   "name": "DATEM",
+   "function": "emulsifier",
+   "category": "generally_recognized",
+   "explanation": "Dough conditioner/emulsifier used in bread.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "datem"
+   ]
+  },
+  {
+   "ins": "476",
+   "name": "Polyglycerol polyricinoleate (PGPR)",
+   "function": "emulsifier",
+   "category": "generally_recognized",
+   "explanation": "Emulsifier used in chocolate.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "pgpr"
+   ]
+  },
+  {
+   "ins": "481",
+   "name": "Sodium stearoyl lactylate",
+   "function": "emulsifier",
+   "category": "generally_recognized",
+   "explanation": "Dough conditioner/emulsifier.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium stearoyl lactylate"
+   ]
+  },
+  {
+   "ins": "500",
+   "name": "Sodium carbonates (baking soda)",
+   "function": "raising agent",
+   "category": "generally_recognized",
+   "explanation": "Baking soda and related salts; adds sodium.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sodium bicarbonate",
+    "baking soda",
+    "sodium carbonate"
+   ]
+  },
+  {
+   "ins": "501",
+   "name": "Potassium carbonates",
+   "function": "acidity regulator",
+   "category": "generally_recognized",
+   "explanation": "Alkaline salt.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "potassium carbonate"
+   ]
+  },
+  {
+   "ins": "503",
+   "name": "Ammonium carbonates",
+   "function": "raising agent",
+   "category": "generally_recognized",
+   "explanation": "Leavening agent.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "ammonium bicarbonate",
+    "ammonium carbonate"
+   ]
+  },
+  {
+   "ins": "508",
+   "name": "Potassium chloride",
+   "function": "salt substitute",
+   "category": "context_dependent",
+   "explanation": "Salt substitute; potassium intake needs medical guidance in kidney disease.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "potassium chloride"
+   ]
+  },
+  {
+   "ins": "551",
+   "name": "Silicon dioxide",
+   "function": "anti-caking agent",
+   "category": "generally_recognized",
+   "explanation": "Anti-caking agent.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "silicon dioxide",
+    "silica"
+   ]
+  },
+  {
+   "ins": "621",
+   "name": "Monosodium glutamate (MSG)",
+   "function": "flavour enhancer",
+   "category": "generally_recognized",
+   "explanation": "Flavour enhancer regarded as safe at typical intakes; adds some sodium. FSSAI requires a label statement on foods containing added MSG.",
+   "evidence_source": "JECFA; FSSAI labelling regulations",
+   "names": [
+    "monosodium glutamate",
+    "msg"
+   ]
+  },
+  {
+   "ins": "627",
+   "name": "Disodium guanylate",
+   "function": "flavour enhancer",
+   "category": "context_dependent",
+   "explanation": "Purine-derived flavour enhancer; relevant for people managing uric acid/gout.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "disodium guanylate"
+   ]
+  },
+  {
+   "ins": "631",
+   "name": "Disodium inosinate",
+   "function": "flavour enhancer",
+   "category": "context_dependent",
+   "explanation": "Purine-derived flavour enhancer; relevant for people managing uric acid/gout.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "disodium inosinate"
+   ]
+  },
+  {
+   "ins": "635",
+   "name": "Disodium 5'-ribonucleotides",
+   "function": "flavour enhancer",
+   "category": "context_dependent",
+   "explanation": "Purine-derived flavour enhancer; relevant for people managing uric acid/gout.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "disodium 5'-ribonucleotides",
+    "ribonucleotides"
+   ]
+  },
+  {
+   "ins": "924a",
+   "name": "Potassium bromate",
+   "function": "flour treatment agent",
+   "category": "high_concern",
+   "explanation": "Flour improver that FSSAI has prohibited in India (2016). Presence on a label should be treated as a red flag and reported.",
+   "evidence_source": "FSSAI order on prohibition of potassium bromate (2016); IARC Monographs",
+   "names": [
+    "potassium bromate"
+   ]
+  },
+  {
+   "ins": "950",
+   "name": "Acesulfame potassium",
+   "function": "sweetener",
+   "category": "quantity_dependent",
+   "explanation": "Non-nutritive sweetener; acceptable within the ADI.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "acesulfame"
+   ]
+  },
+  {
+   "ins": "951",
+   "name": "Aspartame",
+   "function": "sweetener",
+   "category": "quantity_dependent",
+   "explanation": "Non-nutritive sweetener; acceptable within the ADI (JECFA reaffirmed 40 mg/kg bw in 2023 while IARC classed it as possibly carcinogenic, 2B). People with phenylketonuria must avoid it.",
+   "evidence_source": "JECFA 2023; IARC Monographs vol. 134",
+   "names": [
+    "aspartame"
+   ]
+  },
+  {
+   "ins": "954",
+   "name": "Saccharin",
+   "function": "sweetener",
+   "category": "quantity_dependent",
+   "explanation": "Non-nutritive sweetener; acceptable within the ADI.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "saccharin"
+   ]
+  },
+  {
+   "ins": "955",
+   "name": "Sucralose",
+   "function": "sweetener",
+   "category": "quantity_dependent",
+   "explanation": "Non-nutritive sweetener; acceptable within the ADI.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "sucralose"
+   ]
+  },
+  {
+   "ins": "960",
+   "name": "Steviol glycosides",
+   "function": "sweetener",
+   "category": "generally_recognized",
+   "explanation": "Stevia-derived sweeteners.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "steviol glycoside",
+    "stevia"
+   ]
+  },
+  {
+   "ins": "1422",
+   "name": "Acetylated distarch adipate",
+   "function": "modified starch",
+   "category": "generally_recognized",
+   "explanation": "Modified starch used as thickener/stabiliser.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "acetylated distarch adipate"
+   ]
+  },
+  {
+   "ins": "1442",
+   "name": "Hydroxypropyl distarch phosphate",
+   "function": "modified starch",
+   "category": "generally_recognized",
+   "explanation": "Modified starch used as thickener/stabiliser.",
+   "evidence_source": "JECFA evaluation; FSSAI Food Additives Regulations (permitted-use tables)",
+   "names": [
+    "hydroxypropyl distarch phosphate"
+   ]
+  }
+ ]
+}

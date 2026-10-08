@@ -1,0 +1,22 @@
+{
+  "version": "2026.10-mvp-placeholder",
+  "status": "NEEDS_CLINICAL_REVIEW",
+  "activity_factors": {"sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725},
+  "goal_energy_multiplier": {"maintain": 1.0, "lose": 0.85, "gain": 1.10},
+  "min_energy_kcal": {"male": 1500, "female": 1200, "other": 1350},
+  "protein_g_per_kg": {"maintain": 0.83, "lose": 1.0, "gain": 1.2},
+  "fat_energy_fraction": 0.25,
+  "fiber_g_per_1000kcal": 14,
+  "free_sugar_max_energy_fraction": 0.10,
+  "sat_fat_max_energy_fraction": 0.10,
+  "sodium_max_mg": 2000,
+  "min_adult_age": 18,
+  "sources": {
+    "energy": "Mifflin-St Jeor equation",
+    "protein": "ICMR-NIN 2020 RDA ~0.83 g/kg (placeholder)",
+    "sugar": "WHO: free sugars <10% of energy",
+    "sat_fat": "WHO: saturated fat <10% of energy",
+    "sodium": "WHO: <2 g sodium/day",
+    "fiber": "14 g/1000 kcal (placeholder; review against ICMR-NIN)"
+  }
+}

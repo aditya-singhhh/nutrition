@@ -1,0 +1,35 @@
+name: android-apk
+on:
+  push: {branches: [main], paths: ["mobile/**", ".github/workflows/android-apk.yml"]}
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: mobile}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx expo prebuild --platform android --no-install
+        env: {CI: "1", EXPO_NO_TELEMETRY: "1"}
+      - name: Build release APK (signed with the debug key: fine for sideloading, not for Play Store)
+        run: ./gradlew assembleRelease --no-daemon
+        working-directory: mobile/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: health-companion-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+      - name: Publish APK as a GitHub Release
+        if: github.event_name == 'push'
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk health-companion.apk
+          gh release create "apk-${{ github.run_number }}" health-companion.apk \
+            --title "Android APK build ${{ github.run_number }}" \
+            --notes "Debug-signed release build for sideloading. Set the server address on the login screen."

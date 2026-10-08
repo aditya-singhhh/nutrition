@@ -1,0 +1,72 @@
+slug,name,aliases,region,category,diet_type,allergens,serving_g,serving_label,energy_kcal,protein_g,carbs_g,fat_g,sat_fat_g,fiber_g,sugar_g,sodium_mg
+plain-dosa,Plain Dosa,dosa;sada dosa,South India,breakfast,vegan,,80,1 dosa,168,3.9,29.5,3.7,0.8,1.0,0.5,250
+masala-dosa,Masala Dosa,,South India,breakfast,vegan,,150,1 dosa with filling,190,4.2,27,7.5,1.5,1.8,1.0,330
+idli,Idli,idly;steamed rice cake,South India,breakfast,vegan,,40,1 idli,135,4.0,27,0.6,0.1,0.9,0.3,200
+sambar,Sambar,sambhar,South India,curry,vegan,,150,1 katori,55,2.8,8.0,1.4,0.3,2.0,2.0,320
+medu-vada,Medu Vada,vada;urad vada,South India,snack,vegan,,50,1 vada,290,8.0,28,16,3.0,2.5,0.8,450
+upma,Upma,rava upma;suji upma,South India,breakfast,vegan,gluten,200,1 bowl,140,3.3,19.5,5.5,0.9,1.6,0.9,330
+uttapam,Uttapam,uthappam,South India,breakfast,vegan,,120,1 uttapam,160,4.5,26,4.2,0.8,1.3,1.0,280
+rasam,Rasam,,South India,curry,vegan,,150,1 katori,28,1.0,4.5,0.8,0.2,0.8,1.2,300
+curd-rice,Curd Rice,thayir sadam;dahi chawal,South India,staple,vegetarian,milk,200,1 bowl,125,3.5,22,2.5,1.4,0.5,1.5,180
+lemon-rice,Lemon Rice,chitranna,South India,staple,vegan,peanut,200,1 bowl,160,3.0,28,4.0,0.7,0.7,0.4,300
+appam,Appam,,South India,breakfast,vegan,,60,1 appam,150,2.5,28,3.0,2.0,0.8,2.5,120
+pongal,Ven Pongal,pongal;khara pongal,South India,breakfast,vegetarian,milk,200,1 bowl,150,4.0,22,5.0,2.0,1.0,0.3,300
+roti,Roti,chapati;phulka;chapatti,North India,staple,vegan,gluten,40,1 roti,290,9.5,50,5.5,1.0,4.5,0.8,200
+plain-paratha,Plain Paratha,paratha,North India,staple,vegetarian,gluten;milk,60,1 paratha,330,7.5,45,13,5.0,3.5,1.0,380
+aloo-paratha,Aloo Paratha,potato paratha,North India,breakfast,vegetarian,gluten;milk,100,1 paratha,270,6.0,38,10.5,4.0,3.0,1.5,330
+naan,Naan,butter naan,North India,staple,vegetarian,gluten;milk,90,1 naan,290,9.0,50,5.5,1.5,2.2,3.0,450
+paneer-butter-masala,Paneer Butter Masala,paneer makhani,North India,curry,vegetarian,milk,150,1 katori,180,7.0,7,14,7.5,1.2,4.0,380
+palak-paneer,Palak Paneer,,North India,curry,vegetarian,milk,150,1 katori,140,7.5,5,10,5.0,2.0,1.5,320
+dal-tadka,Dal Tadka,dal fry;yellow dal;toor dal,North India,curry,vegan,,150,1 katori,110,6.0,13,4.0,0.8,3.5,1.5,300
+dal-makhani,Dal Makhani,,North India,curry,vegetarian,milk,150,1 katori,130,5.5,12,7.0,3.5,3.5,1.5,320
+rajma,Rajma,rajma masala;kidney bean curry,North India,curry,vegan,,150,1 katori,120,6.0,16,3.5,0.7,5.0,1.5,300
+chole,Chole,chana masala;chickpea curry,North India,curry,vegan,,150,1 katori,140,6.5,18,5.0,0.8,5.5,3.0,320
+kadhi,Kadhi,kadhi pakora;punjabi kadhi,North India,curry,vegetarian,milk,150,1 katori,80,3.0,7,4.5,2.2,0.5,2.5,300
+aloo-gobi,Aloo Gobi,,North India,curry,vegan,,150,1 katori,95,2.5,11,4.8,0.7,2.5,2.0,260
+baingan-bharta,Baingan Bharta,brinjal bharta,North India,curry,vegan,,150,1 katori,85,2.0,7,6.0,0.9,3.0,3.5,250
+bhindi-sabzi,Bhindi Sabzi,okra fry;bhindi masala,North India,curry,vegan,,100,1 katori,90,2.2,8,5.5,0.8,3.5,2.0,230
+matar-paneer,Matar Paneer,mutter paneer,North India,curry,vegetarian,milk,150,1 katori,150,6.5,9,10,5.0,3.0,3.0,330
+butter-chicken,Butter Chicken,murgh makhani,North India,curry,non_vegetarian,milk,150,1 katori,150,12,5,9.0,4.0,0.8,3.0,400
+chicken-curry,Chicken Curry,murgh curry,North India,curry,non_vegetarian,,150,1 katori,140,13,4,8.0,2.0,0.8,1.5,380
+egg-curry,Egg Curry,anda curry,North India,curry,eggetarian,egg,150,1 katori (2 eggs),130,8.0,5,9.0,2.5,0.8,2.0,350
+tandoori-chicken,Tandoori Chicken,,North India,protein,non_vegetarian,milk,150,2 pieces,150,22,3,5.0,1.3,0.3,1.0,450
+mutton-curry,Mutton Curry,mutton rogan josh;lamb curry,North India,curry,non_vegetarian,,150,1 katori,170,14,4,11,4.5,0.8,1.5,400
+steamed-rice,Steamed Rice,rice;chawal;white rice,Pan-India,staple,vegan,,150,1 katori,130,2.7,28,0.3,0.1,0.4,0.0,5
+veg-biryani,Veg Biryani,vegetable biryani,Pan-India,staple,vegetarian,milk,250,1 plate,150,3.2,25,4.2,1.2,1.5,1.5,380
+chicken-biryani,Chicken Biryani,biryani,Pan-India,staple,non_vegetarian,milk,300,1 plate,165,9.0,20,5.5,1.7,1.0,1.0,420
+jeera-rice,Jeera Rice,,North India,staple,vegetarian,milk,150,1 katori,150,2.8,27,3.0,1.2,0.5,0.3,250
+khichdi,Khichdi,dal khichdi,Pan-India,staple,vegetarian,milk,200,1 bowl,115,4.0,18,3.0,0.8,1.8,0.5,280
+pulao,Veg Pulao,pulav;vegetable pulao,Pan-India,staple,vegetarian,milk,200,1 bowl,150,3.0,26,3.5,1.0,1.5,1.0,320
+poha,Poha,kanda poha;flattened rice,West India,breakfast,vegan,peanut,150,1 plate,130,2.5,23,3.2,0.6,1.2,1.0,270
+pav-bhaji,Pav Bhaji,,West India,snack,vegetarian,gluten;milk,300,1 plate (2 pav),160,4.0,22,6.5,2.5,3.0,4.0,450
+vada-pav,Vada Pav,wada pav,West India,snack,vegan,gluten,130,1 vada pav,250,6.0,35,10,2.5,2.5,3.0,520
+dhokla,Dhokla,khaman dhokla,West India,snack,vegetarian,,100,4 pieces,160,6.0,24,4.5,0.8,2.0,4.0,420
+thepla,Thepla,methi thepla,West India,breakfast,vegetarian,gluten,50,1 thepla,310,8.0,45,11,2.0,4.0,1.0,380
+misal-pav,Misal Pav,misal,West India,breakfast,vegan,gluten,300,1 plate,170,6.0,22,6.5,1.2,4.0,2.0,450
+khandvi,Khandvi,,West India,snack,vegetarian,milk,80,6 rolls,165,6.5,18,7.0,1.5,1.5,1.5,400
+litti,Litti,baati,East India,staple,vegetarian,gluten;milk,80,1 litti,260,8.0,42,6.5,1.5,4.0,1.0,300
+aloo-chokha,Aloo Chokha,chokha;potato mash,East India,curry,vegan,mustard,100,1 katori,110,2.5,18,3.5,0.6,2.0,0.8,250
+machher-jhol,Machher Jhol,fish curry;bengali fish curry,East India,curry,non_vegetarian,fish;mustard,150,1 katori (2 pieces),110,12,3,5.5,1.0,0.5,1.0,350
+rasgulla,Rasgulla,,East India,sweet,vegetarian,milk,50,1 piece,186,4.5,38,2.0,1.2,0.2,32,20
+sandesh,Sandesh,,East India,sweet,vegetarian,milk,40,1 piece,280,9.0,42,8.0,5.0,0.0,38,60
+samosa,Samosa,aloo samosa,North India,snack,vegan,gluten,80,1 samosa,262,4.5,27,15,3.5,2.5,1.5,400
+kachori,Kachori,dal kachori,North India,snack,vegan,gluten,70,1 kachori,340,6.5,36,19,4.5,3.0,1.5,430
+pakora,Pakora,bhajiya;pakoda,North India,snack,vegan,,100,6 pieces,300,8.0,27,18,3.0,3.5,1.5,480
+bhel-puri,Bhel Puri,bhel,West India,snack,vegan,peanut;gluten,100,1 plate,180,4.0,30,5.0,1.0,2.5,4.0,430
+momos-veg,Veg Momos,momos;vegetable momos,Northeast India,snack,vegan,gluten;soy,120,5 pieces,150,4.5,24,4.0,0.8,1.5,1.5,380
+pani-puri,Pani Puri,golgappa;puchka,Pan-India,snack,vegan,gluten,100,6 puris,190,3.0,28,7.5,1.2,1.5,4.0,400
+curd,Curd,dahi;yogurt;plain curd,Pan-India,dairy,vegetarian,milk,100,1 katori,60,3.5,4.7,3.3,2.1,0.0,4.7,46
+paneer,Paneer,cottage cheese,North India,dairy,vegetarian,milk,50,50 g,265,18,1.2,20.8,13,0.0,1.2,20
+milk-whole,Milk (whole),doodh;full cream milk,Pan-India,beverage,vegetarian,milk,200,1 glass,61,3.2,4.8,3.3,2.0,0.0,4.8,43
+lassi-sweet,Sweet Lassi,lassi,North India,beverage,vegetarian,milk,250,1 glass,85,2.7,14,2.0,1.3,0.0,13,40
+chaas,Chaas,buttermilk;chhaas;mattha,Pan-India,beverage,vegetarian,milk,200,1 glass,20,1.0,1.5,1.0,0.6,0.0,1.5,180
+masala-chai,Masala Chai (with sugar),chai;tea with milk,Pan-India,beverage,vegetarian,milk,150,1 cup,55,1.5,8.5,1.8,1.1,0.0,8.0,20
+boiled-egg,Boiled Egg,anda;egg,Pan-India,protein,eggetarian,egg,50,1 egg,155,12.6,1.1,10.6,3.3,0.0,1.1,124
+omelette,Omelette,masala omelette,Pan-India,protein,eggetarian,egg,100,2-egg omelette,154,10.5,1.5,11.5,3.3,0.0,0.8,300
+banana,Banana,kela,Pan-India,fruit,vegan,,120,1 medium,89,1.1,22.8,0.3,0.1,2.6,12.2,1
+apple,Apple,seb,Pan-India,fruit,vegan,,150,1 medium,52,0.3,13.8,0.2,0.0,2.4,10.4,1
+papaya,Papaya,papita,Pan-India,fruit,vegan,,150,1 bowl,43,0.5,11,0.3,0.1,1.7,7.8,8
+mango,Mango,aam,Pan-India,fruit,vegan,,150,1 cup sliced,60,0.8,15,0.4,0.1,1.6,13.7,1
+gulab-jamun,Gulab Jamun,,North India,sweet,vegetarian,milk;gluten,50,1 piece,320,5.0,50,11,5.0,0.5,40,60
+jalebi,Jalebi,,North India,sweet,vegetarian,gluten,50,2 pieces,380,2.5,65,12,3.0,0.3,45,30
+papad,Papad (roasted),papadum;appalam,Pan-India,snack,vegan,,10,1 papad,340,20,60,3.0,0.6,6.0,2.0,1700

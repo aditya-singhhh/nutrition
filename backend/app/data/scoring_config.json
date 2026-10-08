@@ -1,0 +1,38 @@
+{
+  "version": "2026.10-mvp-placeholder",
+  "status": "NEEDS_CLINICAL_REVIEW",
+  "note": "Thresholds are transparent placeholders (UK FSA per-100g traffic-light bands) until FSSAI/ICMR-NIN front-of-pack criteria are loaded into the guideline engine. Scores run 0 (at 'bad') to 100 (at 'good') with linear interpolation between.",
+  "weights": {
+    "sugar": 0.20, "sodium": 0.15, "sat_fat": 0.15, "fiber": 0.15,
+    "protein": 0.10, "processing": 0.10, "ingredient_quality": 0.10, "energy_density": 0.05
+  },
+  "components": {
+    "sugar": {"label": "Sugar", "metric": "sugar_g", "unit": "g/100g", "good": 5, "bad": 22.5,
+              "source": "UK FSA front-of-pack per-100g bands (placeholder)"},
+    "sodium": {"label": "Sodium", "metric": "sodium_mg", "unit": "mg/100g", "good": 120, "bad": 600,
+               "source": "UK FSA front-of-pack per-100g bands (placeholder)"},
+    "sat_fat": {"label": "Saturated fat", "metric": "sat_fat_g", "unit": "g/100g", "good": 1.5, "bad": 5,
+                "source": "UK FSA front-of-pack per-100g bands (placeholder)"},
+    "fiber": {"label": "Fibre", "metric": "fiber_g", "unit": "g/100g", "good": 6, "bad": 0.5,
+              "source": "Codex/FSSAI 'high fibre' claim level of 6 g/100g (placeholder)"},
+    "protein": {"label": "Protein", "metric": "protein_g", "unit": "g/100g", "good": 12, "bad": 2,
+                "source": "Placeholder pending guideline engine"},
+    "energy_density": {"label": "Energy density", "metric": "energy_kcal", "unit": "kcal/100g", "good": 100, "bad": 450,
+                       "source": "Placeholder pending guideline engine"}
+  },
+  "processing_scores": {"1": 100, "2": 85, "3": 55, "4": 20},
+  "additive_penalties": {
+    "high_concern": 50, "context_dependent": 8, "quantity_dependent": 5,
+    "insufficient_evidence": 3, "allergen_concern": 0, "generally_recognized": 0
+  },
+  "ingredient_flag_penalties": {"sugar_among_first_three": 15, "refined_flour_first": 10, "hydrogenated_fat": 30},
+  "category_overrides": {
+    "fruit": {"exclude": ["sugar", "protein", "processing", "ingredient_quality"],
+              "why": "Natural sugar in whole fruit is not penalised in the general score; it is reflected in personal compatibility for blood-sugar goals."},
+    "vegetable": {"exclude": ["protein", "processing", "ingredient_quality"],
+                  "why": "Protein is not expected from vegetables."},
+    "beverage": {"exclude": ["fiber", "protein"],
+                 "why": "Fibre and protein are not expected from most beverages."}
+  },
+  "bands": [[80, "excellent"], [60, "good"], [40, "moderate"], [0, "limit"]]
+}

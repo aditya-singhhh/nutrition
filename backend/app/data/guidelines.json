@@ -1,0 +1,148 @@
+{
+  "version": "2026.10-mvp-placeholder",
+  "status": "NEEDS_CLINICAL_REVIEW",
+  "note": "MVP stand-in for the versioned guideline engine. Every rule carries its source; thresholds are placeholders to be replaced by reviewed ICMR-NIN / WHO / FSSAI values. This file is data, never prompt text.",
+  "supported_conditions": [
+    "diabetes",
+    "hypertension",
+    "high_cholesterol"
+  ],
+  "recognised_conditions": [
+    "diabetes",
+    "hypertension",
+    "high_cholesterol",
+    "hyperuricemia",
+    "fatty_liver",
+    "iron_deficiency",
+    "b12_deficiency",
+    "vitamin_d_deficiency"
+  ],
+  "conditions": {
+    "diabetes": {
+      "label": "blood-sugar management",
+      "rules": [
+        {
+          "metric": "sugar_g",
+          "unit": "g/100g",
+          "good": 5,
+          "bad": 10,
+          "weight": 0.4,
+          "reason": "sugars raise blood glucose quickly",
+          "source": "WHO free-sugars guideline 2015 (placeholder thresholds)"
+        },
+        {
+          "metric": "carbs_g",
+          "unit": "g/100g",
+          "good": 15,
+          "bad": 60,
+          "weight": 0.3,
+          "reason": "total carbohydrate drives the glucose response",
+          "source": "ICMR-NIN dietary guidance (placeholder thresholds)"
+        },
+        {
+          "metric": "fiber_g",
+          "unit": "g/100g",
+          "good": 6,
+          "bad": 1,
+          "weight": 0.3,
+          "reason": "fibre slows glucose absorption",
+          "source": "ICMR-NIN dietary guidance (placeholder thresholds)"
+        }
+      ]
+    },
+    "hypertension": {
+      "label": "blood-pressure management",
+      "rules": [
+        {
+          "metric": "sodium_mg",
+          "unit": "mg/100g",
+          "good": 120,
+          "bad": 600,
+          "weight": 0.8,
+          "reason": "sodium raises blood pressure in salt-sensitive people",
+          "source": "WHO sodium guideline 2012 (<2 g/day) (placeholder thresholds)"
+        },
+        {
+          "metric": "sat_fat_g",
+          "unit": "g/100g",
+          "good": 1.5,
+          "bad": 5,
+          "weight": 0.2,
+          "reason": "saturated fat affects overall cardiovascular risk",
+          "source": "WHO 2023 saturated-fat guideline (placeholder thresholds)"
+        }
+      ]
+    },
+    "high_cholesterol": {
+      "label": "cholesterol management",
+      "rules": [
+        {
+          "metric": "sat_fat_g",
+          "unit": "g/100g",
+          "good": 1.5,
+          "bad": 5,
+          "weight": 0.6,
+          "reason": "saturated fat raises LDL cholesterol",
+          "source": "WHO 2023 saturated-fat guideline (placeholder thresholds)"
+        },
+        {
+          "metric": "fiber_g",
+          "unit": "g/100g",
+          "good": 6,
+          "bad": 1,
+          "weight": 0.4,
+          "reason": "soluble fibre helps lower LDL cholesterol",
+          "source": "ICMR-NIN dietary guidance (placeholder thresholds)"
+        }
+      ]
+    }
+  },
+  "goals": {
+    "lose": {
+      "label": "weight loss",
+      "rules": [
+        {
+          "metric": "energy_kcal",
+          "unit": "kcal/100g",
+          "good": 100,
+          "bad": 400,
+          "weight": 0.4,
+          "reason": "lower energy density makes it easier to eat satisfying portions within a calorie target",
+          "source": "Placeholder pending guideline engine"
+        },
+        {
+          "metric": "protein_g",
+          "unit": "g/100g",
+          "good": 12,
+          "bad": 2,
+          "weight": 0.3,
+          "reason": "protein helps fullness",
+          "source": "Placeholder pending guideline engine"
+        },
+        {
+          "metric": "fiber_g",
+          "unit": "g/100g",
+          "good": 6,
+          "bad": 1,
+          "weight": 0.3,
+          "reason": "fibre helps fullness",
+          "source": "Placeholder pending guideline engine"
+        }
+      ]
+    }
+  },
+  "valid_allergens": [
+    "milk",
+    "gluten",
+    "soy",
+    "peanut",
+    "tree_nuts",
+    "egg",
+    "fish",
+    "shellfish",
+    "sesame",
+    "mustard",
+    "sulphites"
+  ],
+  "disclaimer": "Nutrition guidance only - not medical advice. Please follow your doctor's or dietitian's plan."
+}
