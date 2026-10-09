@@ -39,7 +39,14 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [slow, setSlow] = useState(false);
   const lock = useRef(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!busy) return;
+    const t = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(t);
+  }, [busy]);
   const cam = useRef<CameraView>(null);
 
   const inResult = !!result || !!photo;
@@ -228,7 +235,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
 
       <SheetIn key={mode} style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: bsPad, gap: 14, maxHeight: '62%' }}>
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
-        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>Analysing… the first scan can take a minute if the server is waking up</K></View>}
+        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{slow ? 'Still working… the server may be waking up' : 'Analysing…'}</K></View>}
         <ErrorText>{err}</ErrorText>
         {notFound && <Text style={s.muted}>Tip: point the camera at the ingredient list and tap the button to scan the label instead.</Text>}
 

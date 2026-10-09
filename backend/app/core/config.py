@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./healthcompanion.db"
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
-    access_token_minutes: int = 60
+    access_token_minutes: int = 60 * 24 * 14  # 14 days: mobile app has no refresh flow yet (add refresh tokens before real users)
     seed_on_startup: bool = True
     # Hosted demo without migrations: create tables and load reference data on boot. Remove once Alembic exists.
     auto_create_tables: bool = False

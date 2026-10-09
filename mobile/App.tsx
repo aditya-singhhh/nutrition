@@ -10,7 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { FadeIn } from './src/anim';
-import { loadSession } from './src/api';
+import { loadSession, setOnSessionExpired } from './src/api';
 import TabBar, { Tab } from './src/components/TabBar';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -28,6 +28,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
 
+  useEffect(() => { setOnSessionExpired(() => setAuthed(false)); return () => setOnSessionExpired(null); }, []);
   useEffect(() => { loadSession().then((a) => { setAuthed(a); setReady(true); }); }, []);
   // Android back: go to Home first, then let the system close the app.
   useEffect(() => {

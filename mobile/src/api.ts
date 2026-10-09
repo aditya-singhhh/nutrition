@@ -27,6 +27,10 @@ export async function loadSession(): Promise<boolean> {
 
 export const getBaseUrl = () => baseUrl;
 
+// Called when the server says our login has expired, so the app can return to the login screen.
+let onExpired: (() => void) | null = null;
+export const setOnSessionExpired = (fn: (() => void) | null) => { onExpired = fn; };
+
 export async function setBaseUrl(url: string): Promise<void> {
   baseUrl = url.trim().replace(/\/+$/, '') || DEFAULT_BASE_URL;
   await SecureStore.setItemAsync('hc_base', baseUrl);
@@ -64,6 +68,11 @@ export async function request<T = any>(method: string, path: string, body?: unkn
     data = await res.json();
   } catch {
     /* non-JSON body */
+  }
+  if (res.status === 401 && token && !path.startsWith('/auth/')) {
+    await setToken(null);
+    onExpired?.();
+    throw new ApiError(401, 'Your session expired. Please log in again.');
   }
   if (!res.ok) {
     let detail: unknown = data?.detail ?? `Request failed (${res.status})`;
