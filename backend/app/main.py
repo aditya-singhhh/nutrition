@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.ai.providers import AIGateway
+from app.db_migrate import ensure_columns
 from app.api.v1 import auth_users, meals_ai, scan_foods
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_session_factory
@@ -27,6 +28,7 @@ def create_app(settings: Settings | None = None, gateway: AIGateway | None = Non
     factory = make_session_factory(engine)
     if s.env in ("dev", "test") or s.auto_create_tables:
         Base.metadata.create_all(engine)  # real prod should use migrations (Alembic - next step)
+        ensure_columns(engine)
         if s.seed_on_startup:
             with factory() as db:
                 seed_all(db)

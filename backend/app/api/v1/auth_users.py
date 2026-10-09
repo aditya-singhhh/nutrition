@@ -26,7 +26,8 @@ def _user_payload(u: User) -> dict:
         "profile": None if p is None else {
             "age": p.age, "sex": p.sex, "height_cm": p.height_cm, "weight_kg": p.weight_kg,
             "activity_level": p.activity_level, "goal": p.goal, "diet_preference": p.diet_preference,
-            "region": p.region, "country": p.country, "locale": p.locale, "timezone": p.timezone},
+            "region": p.region, "display_name": p.display_name, "target_weight_kg": p.target_weight_kg,
+            "life_stage": p.life_stage, "country": p.country, "locale": p.locale, "timezone": p.timezone},
         "conditions": sorted(c.condition for c in u.conditions),
         "allergies": sorted(a.allergen for a in u.allergies),
     }

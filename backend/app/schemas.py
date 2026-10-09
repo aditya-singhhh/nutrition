@@ -43,8 +43,21 @@ class ProfileIn(BaseModel):
     diet_preference: DietPref | None = None
     region: str | None = Field(default=None, max_length=40)
     timezone: str | None = Field(default=None, max_length=40)
+    display_name: str | None = Field(default=None, max_length=60)
+    target_weight_kg: float | None = Field(default=None, ge=10, le=400)
+    life_stage: Literal["pregnant", "breastfeeding", "none"] | None = None
     conditions: list[str] | None = None
     allergies: list[str] | None = None
+
+    @field_validator("display_name")
+    @classmethod
+    def _name(cls, v):
+        return (v.strip() or None) if v is not None else v
+
+    @field_validator("life_stage")
+    @classmethod
+    def _life_stage(cls, v):
+        return None if v == "none" else v
 
     @field_validator("conditions")
     @classmethod

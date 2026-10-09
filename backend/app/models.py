@@ -55,6 +55,9 @@ class UserProfile(Base):
     goal: Mapped[str | None] = mapped_column(String(20))  # maintain | lose | gain
     diet_preference: Mapped[str | None] = mapped_column(String(20))  # vegan|vegetarian|eggetarian|non_vegetarian
     region: Mapped[str | None] = mapped_column(String(40))
+    display_name: Mapped[str | None] = mapped_column(String(60))
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
+    life_stage: Mapped[str | None] = mapped_column(String(20))  # pregnant | breastfeeding | None
     user: Mapped[User] = relationship(back_populates="profile")
 
 

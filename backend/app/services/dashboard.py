@@ -36,6 +36,10 @@ def targets_for(user: User) -> dict:
     if p is None:
         return {"available": False, "reason": "incomplete_profile",
                 "missing_fields": ["age", "sex", "height_cm", "weight_kg", "activity_level"]}
+    if p.life_stage in ("pregnant", "breastfeeding"):
+        return {"available": False, "reason": "life_stage_review_required",
+                "message": "Calorie and nutrient needs change during pregnancy and breastfeeding. Please follow the "
+                           "plan from your doctor or dietitian. We won't calculate targets for you."}
     return compute_targets(ProfileInput(p.age, p.sex, p.height_cm, p.weight_kg, p.activity_level, p.goal))
 
 
