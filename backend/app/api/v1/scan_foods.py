@@ -207,3 +207,17 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
         return out
     raise HTTPException(422, {"code": "nothing_recognised",
                               "message": "We couldn't see food or a product label. Try again with better light and the item filling the frame."})
+
+
+_status_cache: dict = {"at": 0.0, "val": None}
+
+
+@router.get("/ai/status", tags=["scan"])
+def ai_status(gw: AIGateway = Depends(get_gateway)):
+    """Open in a browser to see whether food-photo recognition works and which model/endpoint is in use.
+    Reveals no secrets. Cached for 60 s so it can't be used to burn quota."""
+    import time
+    now = time.time()
+    if _status_cache["val"] is None or now - _status_cache["at"] > 60:
+        _status_cache.update(at=now, val=gw.status())
+    return _status_cache["val"]

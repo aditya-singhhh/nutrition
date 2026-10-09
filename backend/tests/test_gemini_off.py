@@ -11,7 +11,7 @@ from app.services import openfoodfacts as off
 
 def _fake_post(payload_text):
     def post(url, json=None, headers=None, timeout=None):
-        assert headers["x-goog-api-key"] == "k"
+        assert headers["x-goog-api-key"] in ("k", "AQ.k")
         body = {"candidates": [{"content": {"parts": [{"text": payload_text}]}}]}
         return httpx.Response(200, json=body, request=httpx.Request("POST", url))
     return post
@@ -110,3 +110,33 @@ def test_product_without_nutrients_is_not_scored():
                         source="open_food_facts", confidence="crowd_sourced", verified=False)
     r = evaluate_product(p, UserContext(conditions=[], allergies=[], diet_preference=None, goal=None))
     assert r["quality_score"]["score"] is None
+
+
+def test_gemini_falls_back_across_models_and_routes(monkeypatch):
+    seen = []
+
+    def post(url, json=None, headers=None, timeout=None):
+        seen.append(url)
+        req = httpx.Request("POST", url)
+        if "aiplatform" in url and "gemini-2.0-flash" in url:
+            return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}, request=req)
+        return httpx.Response(404, json={}, request=req)
+    monkeypatch.setattr(providers.httpx, "post", post)
+    c = providers._GeminiClient("AQ.k", "gemini-9-bogus")
+    assert c.probe() == {"ok": True, "route": "vertex-express", "model": "gemini-2.0-flash"}
+    n = len(seen)
+    c.generate("hi", None, json_out=False)
+    assert len(seen) == n + 1  # remembered the working combination
+
+
+def test_gemini_probe_reports_failure(monkeypatch):
+    def post(url, json=None, headers=None, timeout=None):
+        return httpx.Response(403, json={}, request=httpx.Request("POST", url))
+    monkeypatch.setattr(providers.httpx, "post", post)
+    r = providers._GeminiClient("k", "m").probe()
+    assert r["ok"] is False and "HTTP 403" in r["error"] and "k" != r["error"]
+
+
+def test_ai_status_endpoint(client):
+    r = client.get("/api/v1/ai/status")
+    assert r.status_code == 200 and r.json()["gemini_configured"] is False

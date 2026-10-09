@@ -181,37 +181,76 @@ def _mime(image: bytes) -> str:
     return "image/jpeg"
 
 
+_FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash")
+_ROUTES = {
+    "ai-studio": "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+    "vertex-express": "https://aiplatform.googleapis.com/v1/publishers/google/models/{m}:generateContent",
+}
+
+
 class _GeminiClient:
-    _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+    """Calls Gemini. Tries the configured model, then known fallbacks, on both Google endpoints (AI Studio keys and
+    Vertex 'express' keys, which start with 'AQ.'), and remembers the combination that worked."""
 
     def __init__(self, api_key: str, model: str, timeout: float = 45.0):
         if not api_key:
             raise ProviderNotConfigured("HC_GEMINI_API_KEY is required for the gemini provider")
-        self._key, self._model, self._timeout = api_key, model, timeout
+        self._key, self._timeout = api_key, timeout
+        self._models = [m for m in dict.fromkeys([model, *_FALLBACK_MODELS]) if m]
+        first = "vertex-express" if api_key.startswith("AQ.") else "ai-studio"
+        self._routes = [first, *[r for r in _ROUTES if r != first]]
+        self.working: tuple[str, str] | None = None  # (route, model)
+        self.last_error = ""
 
-    def generate(self, prompt: str, image: bytes, *, json_out: bool) -> str:
+    def _attempts(self):
+        if self.working:
+            yield self.working
+            return
+        for r in self._routes:
+            for m in self._models:
+                yield r, m
+
+    def generate(self, prompt: str, image: bytes | None, *, json_out: bool) -> str:
         import base64
 
-        body: dict = {
-            "contents": [{"parts": [{"text": prompt},
-                                    {"inline_data": {"mime_type": _mime(image), "data": base64.b64encode(image).decode()}}]}],
-            "generationConfig": {"temperature": 0},
-        }
+        parts: list = [{"text": prompt}]
+        if image is not None:
+            parts.append({"inline_data": {"mime_type": _mime(image), "data": base64.b64encode(image).decode()}})
+        body: dict = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"temperature": 0}}
         if json_out:
             body["generationConfig"]["responseMimeType"] = "application/json"
+        errors: list[str] = []
+        for route, model in self._attempts():
+            try:
+                r = httpx.post(_ROUTES[route].format(m=model), json=body, headers={"x-goog-api-key": self._key},
+                               timeout=self._timeout)
+                r.raise_for_status()
+                out = "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
+                self.working, self.last_error = (route, model), ""
+                return out
+            except httpx.HTTPStatusError as e:  # status code only: never log the key or the image
+                code = e.response.status_code
+                errors.append(f"{route}/{model}: HTTP {code}")
+                if self.working or code in (401, 429):  # key rejected / rate limited: other models won't help
+                    break
+                if code not in (400, 403, 404):
+                    break
+            except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+                errors.append(f"{route}/{model}: {type(e).__name__}")
+                if self.working:
+                    break
+                if not isinstance(e, (KeyError, IndexError, ValueError)):
+                    break  # network trouble: trying more models won't help
+        self.working = None
+        self.last_error = "; ".join(errors[-4:])
+        raise ProviderError(f"Gemini call failed ({self.last_error})")
+
+    def probe(self) -> dict:
         try:
-            r = httpx.post(f"{self._BASE}/{self._model}:generateContent", json=body,
-                           headers={"x-goog-api-key": self._key}, timeout=self._timeout)
-            r.raise_for_status()
-            parts = r.json()["candidates"][0]["content"]["parts"]
-            return "".join(p.get("text", "") for p in parts)
-        except httpx.HTTPStatusError as e:  # status code only: never log the key or the image
-            code = e.response.status_code
-            hint = {400: "bad request (check HC_GEMINI_MODEL)", 401: "key rejected", 403: "key rejected or not allowed",
-                    404: "model not found (check HC_GEMINI_MODEL)", 429: "rate limit reached, try again shortly"}.get(code, "")
-            raise ProviderError(f"Gemini returned HTTP {code} {hint}".strip()) from e
-        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
-            raise ProviderError(f"Gemini call failed: {type(e).__name__}") from e
+            self.generate("Reply with the single word: ok", None, json_out=False)
+            return {"ok": True, "route": self.working[0], "model": self.working[1]} if self.working else {"ok": True}
+        except ProviderError as e:
+            return {"ok": False, "error": str(e), "tried_models": self._models, "key_prefix_is_AQ": self._key.startswith("AQ.")}
 
 
 class GeminiVisionProvider:
@@ -220,8 +259,8 @@ class GeminiVisionProvider:
 
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str):
-        self._c = _GeminiClient(api_key, model)
+    def __init__(self, api_key: str, model: str, client: _GeminiClient | None = None):
+        self._c = client or _GeminiClient(api_key, model)
         self.version = model
 
     def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
@@ -295,8 +334,8 @@ class GeminiVisionProvider:
 class GeminiOCRProvider:
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str):
-        self._c = _GeminiClient(api_key, model)
+    def __init__(self, api_key: str, model: str, client: _GeminiClient | None = None):
+        self._c = client or _GeminiClient(api_key, model)
         self.version = model
 
     def extract_text(self, image: bytes, languages: tuple[str, ...] = ("en", "hi")) -> OCRResult:
@@ -312,6 +351,7 @@ class AIGateway:
     llm: LLMProvider = field(default_factory=MockLLMProvider)
     vision: VisionProvider = field(default_factory=NullVisionProvider)
     ocr: OCRProvider = field(default_factory=NullOCRProvider)
+    gemini: _GeminiClient | None = None
 
     @classmethod
     def from_settings(cls, s: Settings) -> AIGateway:
@@ -323,14 +363,22 @@ class AIGateway:
         else:
             raise ProviderNotConfigured(f"unknown llm provider: {s.llm_provider}")
         gem = bool(s.gemini_api_key)
+        shared = _GeminiClient(s.gemini_api_key, s.gemini_model) if gem else None
         vision: VisionProvider = NullVisionProvider()
         if s.vision_provider == "mock":
             vision = MockVisionProvider()
         elif s.vision_provider == "gemini" or (gem and s.vision_provider == "null"):
-            vision = GeminiVisionProvider(s.gemini_api_key, s.gemini_model)
+            vision = GeminiVisionProvider(s.gemini_api_key, s.gemini_model, shared)
         ocr: OCRProvider = NullOCRProvider()
         if s.ocr_provider == "mock":
             ocr = MockOCRProvider()
         elif s.ocr_provider == "gemini" or (gem and s.ocr_provider == "null"):
-            ocr = GeminiOCRProvider(s.gemini_api_key, s.gemini_model)
-        return cls(llm=llm, vision=vision, ocr=ocr)
+            ocr = GeminiOCRProvider(s.gemini_api_key, s.gemini_model, shared)
+        gw = cls(llm=llm, vision=vision, ocr=ocr)
+        gw.gemini = shared
+        return gw
+
+    def status(self) -> dict:
+        if self.gemini is None:
+            return {"gemini_configured": False, "vision": self.vision.name, "ocr": self.ocr.name}
+        return {"gemini_configured": True, **self.gemini.probe()}
