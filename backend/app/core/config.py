@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     llm_provider: str = "mock"  # mock | anthropic
     vision_provider: str = "null"  # null | mock | gemini (auto-enabled when HC_GEMINI_API_KEY is set)
     ocr_provider: str = "null"  # null | mock | gemini (auto-enabled when HC_GEMINI_API_KEY is set)
+    # Comma-separated emails allowed to review products (no role editing through the API).
+    admin_emails: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
     # Look unknown barcodes up in Open Food Facts (public, crowd-sourced, unverified) and cache them.

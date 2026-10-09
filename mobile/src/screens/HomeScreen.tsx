@@ -52,6 +52,7 @@ export default function HomeScreen({ refreshKey, onScan }: { refreshKey: number;
           <FadeIn delay={160} style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
             <Tile label="Protein" value={v.protein_g} max={t.protein_g} unit="g" />
             <Tile label="Fibre" value={v.fiber_g} max={t.fiber_g} unit="g" />
+            <Tile label="Carbs" value={v.carbs_g} max={t.carbs_g} unit="g" />
           </FadeIn>
           <FadeIn delay={220} style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
             <Tile label="Sugar limit" value={v.sugar_g} max={t.sugar_g_max} unit="g" limit />

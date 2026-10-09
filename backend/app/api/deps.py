@@ -72,3 +72,15 @@ def decode_image_b64(b64: str, max_bytes: int) -> bytes:
     if not (any(data.startswith(m) for m, _ in _MAGIC) or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")):
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "only JPEG, PNG or WebP images are accepted")
     return data
+
+
+def is_admin(user: User) -> bool:
+    from app.core.config import get_settings
+    allowed = {e.strip().lower() for e in get_settings().admin_emails.split(",") if e.strip()}
+    return user.role == "admin" or user.email.lower() in allowed
+
+
+def require_admin(user: User = Depends(current_user)) -> User:
+    if not is_admin(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin only")
+    return user

@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from app.ai.providers import AIGateway
 from app.db_migrate import ensure_columns
-from app.api.v1 import auth_users, meals_ai, scan_foods
+from app.api.v1 import admin, auth_users, meals_ai, scan_foods
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_session_factory
 from app.models import Base
@@ -67,7 +67,7 @@ def create_app(settings: Settings | None = None, gateway: AIGateway | None = Non
             db.execute(text("SELECT 1"))
         return {"status": "ready"}
 
-    for r in (auth_users.router, scan_foods.router, meals_ai.router):
+    for r in (auth_users.router, scan_foods.router, meals_ai.router, admin.router):
         app.include_router(r, prefix="/api/v1")
     return app
 

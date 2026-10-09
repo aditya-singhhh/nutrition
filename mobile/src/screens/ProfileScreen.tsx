@@ -1,12 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Switch, Text, View } from 'react-native';
+import { Alert, Share, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeIn, FillBar, Press, SheetIn } from '../anim';
 import { api, getBaseUrl, request, setToken } from '../api';
 import Screen from '../components/Screen';
 import { Button, Card, Chip, Display, ErrorText, Field, K, Segmented, s } from '../components/ui';
 import { C, F } from '../theme';
+import ReviewScreen from './ReviewScreen';
 
 type Opt = { key: string; label: string; desc?: string };
 const SEX: Opt[] = [{ key: 'male', label: 'Male' }, { key: 'female', label: 'Female' }, { key: 'other', label: 'Other' }];
@@ -95,6 +96,8 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
   const [email, setEmail] = useState('');
   const [targets, setTargets] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         weight: p.weight_kg ? String(p.weight_kg) : '', target: p.target_weight_kg ? String(p.target_weight_kg) : '', activity: p.activity_level ?? null,
         goal: p.goal ?? null, diet: p.diet_preference ?? null, region: p.region ?? null, lifeStage: p.life_stage ?? 'none',
         conditions: me.conditions ?? [], allergies: me.allergies ?? [], share: !!p.training_opt_in };
-      setF(form); setBase(form); setEmail(me.email ?? '');
+      setF(form); setBase(form); setEmail(me.email ?? ''); setAdmin(!!me.is_admin);
       setTargets(await request('GET', '/users/me/targets'));
       setLoaded(true);
     } catch (e: any) { setErr(e.message); }
@@ -158,6 +161,10 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
     ]);
   }
 
+  async function shareReport() {
+    try { const r: any = await api.report(7); await Share.share({ message: r.text }); } catch (e: any) { setErr(e.message); }
+  }
+  if (reviewing) return <ReviewScreen onClose={() => setReviewing(false)} />;
   const initial = (f.name.trim() || email || '?').charAt(0).toUpperCase();
   const showSaveBar = dirty || saved;
   return (
@@ -294,6 +301,8 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         <Section title="Account" delay={340}>
           <View style={{ gap: 3 }}><K size={10}>Signed in as</K><Text style={s.body}>{email}</Text></View>
           <View style={{ gap: 3 }}><K size={10}>Server</K><Text style={{ fontFamily: F.mono, fontSize: 12, color: C.fg }}>{getBaseUrl()}</Text></View>
+          <Button kind="tonal" title="Share my 7-day food summary" onPress={shareReport} />
+          {admin && <Button kind="tonal" title="Review products (admin)" onPress={() => setReviewing(true)} />}
           <Button kind="tonal" title="Log out" onPress={async () => { await setToken(null); onLogout(); }} />
           <Press accessibilityRole="button" onPress={confirmDelete} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}><K color={C.bad}>Delete my account</K></Press>
         </Section>

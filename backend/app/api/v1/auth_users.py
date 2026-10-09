@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import current_user, get_db
+from app.api.deps import is_admin, current_user, get_db
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import Allergy, ModelPrediction, PredictionFeedback, ScanRecord, User, UserCondition, UserProfile
@@ -28,6 +28,7 @@ def _user_payload(u: User) -> dict:
             "activity_level": p.activity_level, "goal": p.goal, "diet_preference": p.diet_preference,
             "region": p.region, "display_name": p.display_name, "target_weight_kg": p.target_weight_kg,
             "life_stage": p.life_stage, "training_opt_in": bool(p.training_opt_in), "country": p.country, "locale": p.locale, "timezone": p.timezone},
+        "is_admin": is_admin(u),
         "conditions": sorted(c.condition for c in u.conditions),
         "allergies": sorted(a.allergen for a in u.allergies),
     }
@@ -62,6 +63,12 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 @router.get("/users/me", tags=["users"])
 def me(user: User = Depends(current_user)):
     return _user_payload(user)
+
+
+@router.get("/users/me/report", tags=["users"])
+def my_report(days: int = 7, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    from app.services.report import build_report
+    return build_report(db, user, days)
 
 
 @router.put("/users/me/profile", tags=["users"])

@@ -96,6 +96,9 @@ export const api = {
   scanBarcode: (barcode: string) => request('POST', '/scan/barcode', { barcode }),
   searchFoods: (q: string) => request<{ items: any[] }>('GET', `/foods?q=${encodeURIComponent(q)}`),
   alternatives: (r: { barcode?: string; slug?: string }) => request('GET', r.barcode ? `/products/${r.barcode}/alternatives` : `/foods/${r.slug}/alternatives`, undefined, 30000),
+  report: (days = 7) => request('GET', `/users/me/report?days=${days}`),
+  reviewQueue: () => request('GET', '/admin/products/queue'),
+  reviewProduct: (code: string, verified: boolean) => request('POST', `/admin/products/${code}/review`, { verified }),
   analyzeFood: (food_slug: string) => request('POST', '/food/analyze', { food_slug, servings: 1 }),
   logMeal: (item: { food_slug?: string; barcode?: string }) =>
     request('POST', '/meals', { meal_type: 'snack', items: [{ ...item, servings: 1 }] }),
