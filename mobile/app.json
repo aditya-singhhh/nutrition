@@ -2,14 +2,14 @@
   "expo": {
     "name": "Health Companion",
     "slug": "health-companion",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": { "supportsTablet": false, "bundleIdentifier": "com.healthcompanion.app" },
     "android": {
       "package": "com.healthcompanion.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,6 +22,7 @@
     "plugins": [
       ["expo-camera", { "cameraPermission": "Allow Health Companion to use the camera to scan food barcodes.", "recordAudioAndroid": false }],
       "expo-secure-store",
+      ["expo-image-picker", { "photosPermission": "Allow Health Companion to read a food or label photo you choose." }],
       ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
     ]
   }

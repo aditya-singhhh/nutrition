@@ -38,19 +38,25 @@ export async function setToken(t: string | null): Promise<void> {
   else await SecureStore.deleteItemAsync('hc_token');
 }
 
-export async function request<T = any>(method: string, path: string, body?: unknown | FormData): Promise<T> {
+export async function request<T = any>(method: string, path: string, body?: unknown | FormData, timeoutMs = 30000): Promise<T> {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = isForm ? {} : { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     res = await fetch(`${baseUrl}/api/v1${path}`, {
       method,
       headers,
+      signal: ctl.signal,
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
-  } catch {
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new ApiError(0, 'The server is taking too long. It may be waking up, so please try again in a minute.');
     throw new ApiError(0, `Cannot reach the server at ${baseUrl}. Check the server address and your connection.`);
+  } finally {
+    clearTimeout(timer);
   }
   if (res.status === 204) return undefined as T;
   let data: any = null;
@@ -84,15 +90,10 @@ export const api = {
     request('POST', '/meals', { meal_type: 'snack', items: [{ ...item, servings: 1 }] }),
   logPhotoMeal: (prediction_id: number, items: { food_slug: string; grams: number; grams_min: number; grams_max: number }[]) =>
     request('POST', '/meals', { meal_type: 'snack', source: 'photo', items: items.map((i) => ({ ...i, prediction_id })) }),
-  scanFoodPhoto: (uri: string) => request('POST', '/scan/food-photo', photoForm(uri)),
-  scanLabel: (uri: string) => request('POST', '/scan/label', photoForm(uri)),
+  // One call for food OR label. Base64 JSON is more reliable than multipart on React Native.
+  scanSmart: (image_base64: string) => request('POST', '/scan/smart', { image_base64 }, 90000),
   feedback: (prediction_id: number, prediction_correct: boolean, corrected_items: { food_slug: string; grams?: number }[]) =>
     request('POST', `/predictions/${prediction_id}/feedback`, { prediction_correct, corrected_items }),
   chat: (message: string, session_id?: number) => request('POST', '/chat', { message, session_id }),
 };
 
-function photoForm(uri: string): FormData {
-  const f = new FormData();
-  f.append('image', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
-  return f;
-}

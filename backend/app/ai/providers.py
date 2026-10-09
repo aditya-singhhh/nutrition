@@ -106,12 +106,24 @@ class VisionProvider(Protocol):
 
     def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]: ...
 
+    def smart(self, image: bytes, known: list[tuple[str, str]] | None = None) -> SmartScan: ...
+
+
+@dataclass
+class SmartScan:
+    kind: str  # food | label | none
+    dishes: list = field(default_factory=list)  # list[DishCandidate] when kind == food
+    label_text: str = ""  # when kind == label
+
 
 class NullVisionProvider:
     name, version = "null", "0"
 
     def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
-        raise ProviderNotConfigured("No food-recognition model is configured (HC_VISION_PROVIDER)")
+        raise ProviderNotConfigured("No food-recognition model is configured (set HC_GEMINI_API_KEY on the server)")
+
+    def smart(self, image: bytes, known: list[tuple[str, str]] | None = None) -> SmartScan:
+        raise ProviderNotConfigured("No food-recognition model is configured (set HC_GEMINI_API_KEY on the server)")
 
 
 class MockVisionProvider:
@@ -122,6 +134,9 @@ class MockVisionProvider:
 
     def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
         return list(self.candidates)
+
+    def smart(self, image: bytes, known: list[tuple[str, str]] | None = None) -> SmartScan:
+        return SmartScan("food", list(self.candidates)) if self.candidates else SmartScan("none")
 
 
 # ---------------------------------------------------------------- OCR
@@ -190,7 +205,12 @@ class _GeminiClient:
             r.raise_for_status()
             parts = r.json()["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
-        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:  # never log the key or the image
+        except httpx.HTTPStatusError as e:  # status code only: never log the key or the image
+            code = e.response.status_code
+            hint = {400: "bad request (check HC_GEMINI_MODEL)", 401: "key rejected", 403: "key rejected or not allowed",
+                    404: "model not found (check HC_GEMINI_MODEL)", 429: "rate limit reached, try again shortly"}.get(code, "")
+            raise ProviderError(f"Gemini returned HTTP {code} {hint}".strip()) from e
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
             raise ProviderError(f"Gemini call failed: {type(e).__name__}") from e
 
 
@@ -223,6 +243,41 @@ class GeminiVisionProvider:
             items = json.loads(raw).get("items", [])
         except (ValueError, AttributeError) as e:
             raise ProviderError("Gemini returned unreadable output") from e
+        return self._parse_items(items, allowed)
+
+    def smart(self, image: bytes, known: list[tuple[str, str]] | None = None) -> SmartScan:
+        """One call: decide whether the photo shows food or a packaged-food label, and extract accordingly."""
+        import json
+
+        known = known or []
+        allowed = {slug for slug, _ in known}
+        menu = "\n".join(f"{slug} = {name}" for slug, name in known)
+        prompt = (
+            "You are the scanner of an Indian nutrition app. Decide what the photo shows.\n"
+            '- If it shows prepared food or a meal, set kind to "food" and list dishes using ONLY these ids:\n'
+            f"{menu}\n"
+            '- If it mainly shows the printed ingredients/nutrition text of a packaged product, set kind to "label" and '
+            "transcribe the ingredient list and additive codes exactly as printed into label_text.\n"
+            '- Otherwise set kind to "none".\n'
+            'Return JSON: {"kind":"food|label|none","items":[{"slug":"<id>","confidence":0..1,"grams_min":number,'
+            '"grams_max":number}],"label_text":"..."}. Items only for kind food: one per distinct dish, realistic edible-weight '
+            "range in grams, leave out dishes not in the list. Never return calories or other nutrition values."
+        )
+        raw = self._c.generate(prompt, image, json_out=True)
+        try:
+            data = json.loads(raw)
+            kind = str(data.get("kind", "none"))
+        except (ValueError, AttributeError) as e:
+            raise ProviderError("Gemini returned unreadable output") from e
+        if kind == "food":
+            dishes = self._parse_items(data.get("items", []), allowed)
+            return SmartScan("food", dishes) if dishes else SmartScan("none")
+        if kind == "label" and str(data.get("label_text", "")).strip():
+            return SmartScan("label", label_text=str(data["label_text"]).strip())
+        return SmartScan("none")
+
+    @staticmethod
+    def _parse_items(items, allowed: set[str]) -> list[DishCandidate]:
         out: list[DishCandidate] = []
         for it in items if isinstance(items, list) else []:
             try:

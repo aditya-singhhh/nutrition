@@ -57,3 +57,27 @@ def test_off_rejects_incomplete_or_missing(db):
     c2 = httpx.Client(transport=httpx.MockTransport(
         lambda r: httpx.Response(200, json={"status": 1, "product": {"nutriments": {}}})))
     assert off.lookup_and_store(db, "8901234567892", c2) is None
+
+
+def test_smart_scan_routes(ai_client):
+    import base64
+    from tests.conftest import register
+    auth = register(ai_client)
+    img = base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 200).decode()
+    r = ai_client.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth)
+    assert r.status_code == 200, r.text
+    assert r.json()["kind"] == "food" and r.json()["items"]
+
+
+def test_smart_scan_rejects_non_image(ai_client):
+    import base64
+    from tests.conftest import register
+    auth = register(ai_client)
+    r = ai_client.post("/api/v1/scan/smart", json={"image_base64": base64.b64encode(b"x" * 300).decode()}, headers=auth)
+    assert r.status_code == 415
+
+
+def test_smart_scan_not_configured(client, auth):
+    import base64
+    img = base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 200).decode()
+    assert client.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth).status_code == 503

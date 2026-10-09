@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.providers import AIGateway, ProviderError, ProviderNotConfigured
-from app.api.deps import current_user, get_db, get_gateway, read_image
+from app.api.deps import current_user, decode_image_b64, get_db, get_gateway, read_image
 from app.core.config import get_settings
 from app.domain.barcode import InvalidBarcode, normalize_barcode
 from app.domain.compat import FoodView, evaluate_personal
@@ -16,7 +16,7 @@ from app.domain.ingredients import analyze_ingredients
 from app.domain.nutrition import round_nutrients, scale_range
 from app.domain.scoring import score_food
 from app.models import FoodItem, ModelPrediction, User
-from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn
+from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn, SmartScanIn
 from app.services import catalog, openfoodfacts
 from app.services.audit import audit
 from app.services.catalog import user_context
@@ -135,19 +135,21 @@ def scan_label(image: UploadFile = File(...), user: User = Depends(current_user)
 
 
 # ------------------------------------------------------------------ food photo
-@router.post("/scan/food-photo", tags=["scan"])
-def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_user), db: Session = Depends(get_db),
-                    gw: AIGateway = Depends(get_gateway)):
-    data = read_image(image, get_settings().max_upload_bytes)
+def _known_foods(db: Session) -> list[tuple[str, str]]:
+    return [(f.slug, f.name) for f in db.scalars(select(FoodItem))]
+
+
+def _call_provider(fn):
     try:
-        known = [(f.slug, f.name) for f in db.scalars(select(FoodItem))]
-        cands = gw.vision.detect_dishes(data, known)
+        return fn()
     except ProviderNotConfigured as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
     except ProviderError as e:
-        logger.warning("vision failed: %s", e)
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "food recognition failed, please try again") from None
+        logger.warning("provider failed: %s", e)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Recognition service problem: {e}") from None
 
+
+def _food_response(db: Session, user: User, gw: AIGateway, data: bytes, cands: list) -> dict:
     items, unknown = [], []
     for c in cands:
         f = catalog.get_food_by_slug(db, c.food_slug)
@@ -171,6 +173,37 @@ def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_
                           for i in items], "unknown_slugs": unknown})
     db.add(pred)
     db.commit()
-    return {"prediction_id": pred.id, "items": items, "unrecognised": unknown,
+    return {"kind": "food", "prediction_id": pred.id, "items": items, "unrecognised": unknown,
             "message": "Portions are estimates, not exact weights. Please confirm or correct the items before logging.",
             "correction_endpoint": f"/api/v1/predictions/{pred.id}/feedback"}
+
+
+@router.post("/scan/food-photo", tags=["scan"])
+def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_user), db: Session = Depends(get_db),
+                    gw: AIGateway = Depends(get_gateway)):
+    data = read_image(image, get_settings().max_upload_bytes)
+    cands = _call_provider(lambda: gw.vision.detect_dishes(data, _known_foods(db)))
+    return _food_response(db, user, gw, data, cands)
+
+
+@router.post("/scan/smart", tags=["scan"])
+def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Session = Depends(get_db),
+               gw: AIGateway = Depends(get_gateway)):
+    """One scan button: the photo is food (-> dish estimates) or a label (-> ingredient analysis). Base64 JSON body,
+    which is more reliable than multipart from React Native."""
+    data = decode_image_b64(body.image_base64, get_settings().max_upload_bytes)
+    res = _call_provider(lambda: gw.vision.smart(data, _known_foods(db)))
+    if res.kind == "food":
+        return _food_response(db, user, gw, data, res.dishes)
+    if res.kind == "label":
+        out = analyze_label_text(res.label_text, user, None)
+        pred = ModelPrediction(user_id=user.id, kind="label_ocr", model_name=gw.vision.name, model_version=gw.vision.version,
+                               confidence=None, input_type="image", input_digest=hashlib.sha256(data).hexdigest(),
+                               output={"chars": len(res.label_text)})
+        db.add(pred)
+        db.commit()
+        out.update({"kind": "label", "prediction_id": pred.id, "extracted_text": res.label_text,
+                    "note": "Please check the text we read against the pack."})
+        return out
+    raise HTTPException(422, {"code": "nothing_recognised",
+                              "message": "We couldn't see food or a product label. Try again with better light and the item filling the frame."})

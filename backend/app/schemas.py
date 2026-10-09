@@ -73,6 +73,10 @@ class BarcodeIn(BaseModel):
     barcode: str = Field(min_length=8, max_length=20)
 
 
+class SmartScanIn(BaseModel):
+    image_base64: str = Field(min_length=100, max_length=14_000_000)
+
+
 class LabelTextIn(BaseModel):
     text: str = Field(min_length=3, max_length=6000)
     nutrients_per_100g: dict[str, float | None] | None = None

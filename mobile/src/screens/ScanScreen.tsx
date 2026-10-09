@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,13 +9,12 @@ import { FadeIn, Laser, Press, Pulse, SheetIn } from '../anim';
 import { api } from '../api';
 import ResultView from '../components/ResultView';
 import Screen from '../components/Screen';
-import { Button, Card, Display, ErrorText, Field, K, Segmented, Tag, s } from '../components/ui';
+import { Button, Card, Display, ErrorText, Field, K, Tag, s } from '../components/ui';
 import { C, F } from '../theme';
 
-type Mode = 'barcode' | 'photo' | 'label' | 'search';
+type Mode = 'scan' | 'type' | 'search';
 type Target = { food_slug?: string; barcode?: string };
 type PhotoItem = { slug: string; name: string; conf: number; sure: boolean; lo: number; hi: number; kcal: [number, number]; size: 0 | 1 | 2; on: boolean };
-const MODES = [{ key: 'barcode', label: 'Barcode' }, { key: 'photo', label: 'Photo' }, { key: 'label', label: 'Label' }, { key: 'search', label: 'Search' }];
 const gramsFor = (i: PhotoItem) => [i.lo, (i.lo + i.hi) / 2, i.hi][i.size];
 const kcalFor = (i: PhotoItem) => [i.kcal[0], (i.kcal[0] + i.kcal[1]) / 2, i.kcal[1]][i.size];
 
@@ -26,7 +26,7 @@ const IconBtn = ({ label, onPress, children }: { label: string; onPress: () => v
 
 export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void; onClose: () => void }) {
   const { top, bottom } = useSafeAreaInsets();
-  const [mode, setMode] = useState<Mode>('barcode');
+  const [mode, setMode] = useState<Mode>('scan');
   const [perm, askPerm] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -67,24 +67,31 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     const r = await run(() => api.analyzeFood(slug));
     if (r) { setResult(r); setTarget({ food_slug: slug }); }
   }
+  async function analyse(b64: string | null | undefined) {
+    if (!b64) { setErr('Could not read that picture. Please try again.'); return; }
+    const r: any = await run(() => api.scanSmart(b64));
+    if (!r) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (r.kind === 'label') setResult({ ...r, name: 'Scanned label' });
+    else setPhoto({
+      id: r.prediction_id, unrecognised: r.unrecognised ?? [],
+      items: r.items.map((i: any): PhotoItem => ({
+        slug: i.food.slug, name: i.food.name, conf: i.confidence, sure: !i.needs_confirmation, on: true, size: 1,
+        lo: i.portion_g_range[0], hi: i.portion_g_range[1], kcal: [i.nutrition_range.min.energy_kcal ?? 0, i.nutrition_range.max.energy_kcal ?? 0] })),
+    });
+  }
   async function snap() {
     if (!cam.current || busy) return;
-    const kind = mode;
-    const pic = await run(async () => cam.current!.takePictureAsync({ quality: 0.5, skipProcessing: true }));
+    const pic = await run(async () => cam.current!.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true }));
     if (!pic) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    if (kind === 'label') {
-      const r = await run(() => api.scanLabel(pic.uri));
-      if (r) setResult({ ...r, name: 'Scanned label' });
-    } else {
-      const r: any = await run(() => api.scanFoodPhoto(pic.uri));
-      if (r) setPhoto({
-        id: r.prediction_id, unrecognised: r.unrecognised ?? [],
-        items: r.items.map((i: any): PhotoItem => ({
-          slug: i.food.slug, name: i.food.name, conf: i.confidence, sure: !i.needs_confirmation, on: true, size: 1,
-          lo: i.portion_g_range[0], hi: i.portion_g_range[1], kcal: [i.nutrition_range.min.energy_kcal ?? 0, i.nutrition_range.max.energy_kcal ?? 0]})),
-      });
-    }
+    await analyse(pic.base64);
+  }
+  async function fromGallery() {
+    if (busy) return;
+    const res = await run(() => ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.4, base64: true }));
+    if (!res || res.canceled) return;
+    await analyse(res.assets?.[0]?.base64);
   }
   async function log() {
     if (!target) return;
@@ -182,76 +189,84 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   const camMode = mode !== 'search';
   const camOk = camMode && perm?.granted;
   const bsPad = Math.max(bottom, 12) + 16;
+  const lookup = async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); };
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: '#0A120E' }}>
       {camOk && (
         <CameraView ref={cam} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} enableTorch={torch} facing="back"
           barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
-          onBarcodeScanned={mode === 'barcode' ? ({ data }) => { if (lock.current) return; lock.current = true; scan(data); } : undefined} />
+          onBarcodeScanned={({ data }) => { if (lock.current || busy) return; lock.current = true; scan(data); }} />
       )}
       <View style={{ paddingTop: top + 8, paddingHorizontal: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <IconBtn label="Close scanner" onPress={onClose}><Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke="#fff" strokeWidth={2} strokeLinecap="round" /></Svg></IconBtn>
         {camOk ? <IconBtn label="Torch" onPress={() => setTorch(!torch)}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M13 2L4 14h7l-1 8 9-12h-7z" stroke={torch ? C.gold : '#fff'} fill={torch ? C.gold : 'none'} strokeWidth={2} strokeLinejoin="round" /></Svg></IconBtn> : <View />}
       </View>
-      <View style={{ paddingHorizontal: 20, paddingTop: 12 }}><Segmented dark options={MODES} value={mode} onChange={(k) => { setMode(k as Mode); setErr(null); setNotFound(false); lock.current = false; }} /></View>
 
       {camMode && !perm?.granted && (
         <View style={{ flex: 1, padding: 24, justifyContent: 'center', gap: 16 }}>
           <Display size={34} color="#fff">Camera needed</Display>
-          <Text style={{ fontFamily: F.body, fontSize: 15, color: C.onInk }}>Allow the camera to scan barcodes, plates and labels. Barcodes can also be typed below.</Text>
+          <Text style={{ fontFamily: F.body, fontSize: 15, color: C.onInk }}>Allow the camera to scan. You can also pick a photo from your gallery or type a barcode below.</Text>
           <Button title="Allow camera" onPress={askPerm} />
         </View>
       )}
       {camOk && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }} pointerEvents="none">
-          <Pulse style={{ width: mode === 'photo' ? 300 : 300, height: mode === 'barcode' ? 190 : 280 }}>
+          <Pulse style={{ width: 300, height: 220 }}>
             <Corner style={{ left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 14 }} />
             <Corner style={{ right: 0, top: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: 14 }} />
             <Corner style={{ left: 0, bottom: 0, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: 14 }} />
             <Corner style={{ right: 0, bottom: 0, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: 14 }} />
-            {mode === 'barcode' && <Laser height={190} color={C.gold} />}
+            <Laser height={220} color={C.gold} />
           </Pulse>
-          <View style={{ alignItems: 'center', gap: 6 }}>
-            <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6 }}>
-              {mode === 'barcode' ? 'Align the barcode inside the frame' : mode === 'photo' ? 'Frame your plate, then tap the button' : 'Frame the ingredient list, then tap the button'}
-            </K>
-            {mode === 'barcode' && <K color={C.onInk} size={10}>EAN-13 · EAN-8 · UPC-A</K>}
+          <View style={{ alignItems: 'center', gap: 6, paddingHorizontal: 24 }}>
+            <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6, textAlign: 'center' }}>Point at a barcode, a plate or a label</K>
+            <K color={C.onInk} size={10} style={{ textAlign: 'center' }}>Barcodes scan on their own · tap the button for food or labels</K>
           </View>
         </View>
       )}
-      {!camOk && !camMode && <View style={{ flex: 1 }} />}
+      {!camOk && <View style={{ flex: 1 }} />}
 
       <SheetIn key={mode} style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: bsPad, gap: 14, maxHeight: '62%' }}>
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
-        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{mode === 'photo' ? 'Recognising your food…' : mode === 'label' ? 'Reading the label…' : 'Working…'}</K></View>}
+        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>Analysing… the first scan can take a minute if the server is waking up</K></View>}
         <ErrorText>{err}</ErrorText>
-        {notFound && <Button kind="tonal" title="Scan its label instead" onPress={() => { setMode('label'); setNotFound(false); setErr(null); }} />}
+        {notFound && <Text style={s.muted}>Tip: point the camera at the ingredient list and tap the button to scan the label instead.</Text>}
 
-        {mode === 'barcode' && (
+        {mode === 'scan' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
+            <Press accessibilityRole="button" accessibilityLabel="Pick a photo from the gallery" disabled={busy} onPress={fromGallery} style={{ alignItems: 'center', gap: 6, width: 80, opacity: busy ? 0.5 : 1 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5h.01" stroke={C.fg} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+              </View>
+              <K size={10}>Gallery</K>
+            </Press>
+            <Press accessibilityRole="button" accessibilityLabel="Scan food or label" disabled={busy || !camOk} onPress={snap}
+              style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: busy || !camOk ? 0.45 : 1 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.accent }} />
+            </Press>
+            <Press accessibilityRole="button" accessibilityLabel="Type a barcode or search a dish" onPress={() => setMode('type')} style={{ alignItems: 'center', gap: 6, width: 80 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M4 7h16M4 12h10M4 17h6" stroke={C.fg} strokeWidth={2} strokeLinecap="round" fill="none" /></Svg>
+              </View>
+              <K size={10}>Type</K>
+            </Press>
+          </View>
+        )}
+        {mode === 'type' && (
           <>
-            <K>No camera? Type the number</K>
+            <K>Type a barcode number</K>
             <Field label="Barcode number" value={manual} onChangeText={setManual} keyboardType="number-pad" mono />
             <Button title="Look up" onPress={() => scan(manual)} busy={busy} disabled={manual.length < 8} />
-          </>
-        )}
-        {(mode === 'photo' || mode === 'label') && (
-          camOk ? (
-            <View style={{ alignItems: 'center', gap: 8 }}>
-              <Press accessibilityRole="button" accessibilityLabel={mode === 'photo' ? 'Take photo of food' : 'Take photo of label'} disabled={busy} onPress={snap}
-                style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
-                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.accent }} />
-              </Press>
-              <Text style={[s.muted, { textAlign: 'center' }]}>
-                {mode === 'photo' ? 'Portions are estimates. You can correct everything before logging.' : 'We read the ingredient list and score it. Please check the text we read.'}
-              </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Button kind="tonal" title="Search a dish" onPress={() => setMode('search')} style={{ flex: 1, height: 46 }} />
+              <Button kind="tonal" title="Back to camera" onPress={() => { setMode('scan'); setErr(null); lock.current = false; }} style={{ flex: 1, height: 46 }} />
             </View>
-          ) : <Text style={s.muted}>Allow the camera above to use this mode.</Text>
+          </>
         )}
         {mode === 'search' && (
           <>
-            <Field label="Dish name (masala dosa, dal, poha)" value={query} onChangeText={setQuery} autoCapitalize="none"
-              onSubmitEditing={async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); }} returnKeyType="search" />
-            <Button title="Search" busy={busy} disabled={!query.trim()} onPress={async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); }} />
+            <Field label="Dish name (masala dosa, dal, poha)" value={query} onChangeText={setQuery} autoCapitalize="none" onSubmitEditing={lookup} returnKeyType="search" />
+            <Button title="Search" busy={busy} disabled={!query.trim()} onPress={lookup} />
             {hits.map((h, i) => (
               <FadeIn key={h.slug} delay={i * 40}>
                 <Press accessibilityRole="button" onPress={() => pick(h.slug)} style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -260,6 +275,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
                 </Press>
               </FadeIn>
             ))}
+            <Button kind="tonal" title="Back to camera" onPress={() => { setMode('scan'); setErr(null); lock.current = false; }} style={{ height: 46 }} />
           </>
         )}
       </SheetIn>

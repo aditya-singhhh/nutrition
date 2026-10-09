@@ -55,3 +55,20 @@ def read_image(upload: UploadFile, max_bytes: int) -> bytes:
     if not ok:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "only JPEG, PNG or WebP images are accepted")
     return data
+
+
+def decode_image_b64(b64: str, max_bytes: int) -> bytes:
+    import base64
+    import binascii
+
+    if "," in b64[:40]:  # tolerate a data: URI prefix
+        b64 = b64.split(",", 1)[1]
+    try:
+        data = base64.b64decode(b64, validate=False)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "image is not valid base64") from None
+    if len(data) > max_bytes:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "image too large")
+    if not (any(data.startswith(m) for m, _ in _MAGIC) or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")):
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "only JPEG, PNG or WebP images are accepted")
+    return data
