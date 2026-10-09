@@ -2,6 +2,7 @@ import os
 
 os.environ["HC_ENV"] = "test"
 os.environ["HC_OFF_LOOKUP"] = "false"
+os.environ["HC_RATE_LIMIT"] = "false"
 os.environ["HC_JWT_SECRET"] = "test-secret-" + "x" * 32
 
 import pytest  # noqa: E402

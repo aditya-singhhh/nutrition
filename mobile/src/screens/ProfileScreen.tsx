@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeIn, FillBar, Press, SheetIn } from '../anim';
 import { api, getBaseUrl, request, setToken } from '../api';
 import Screen from '../components/Screen';
-import { Button, Card, Chip, Display, ErrorText, Field, K, Segmented, s } from '../components/ui';
+import { Button, Card, Chip, Display, ErrorText, Field, K, LangToggle, Segmented, s } from '../components/ui';
+import { useT } from '../i18n';
 import { C, F } from '../theme';
 import ReviewScreen from './ReviewScreen';
 
@@ -90,6 +91,7 @@ const Rows = ({ opts, val, set }: { opts: Opt[]; val: string | null; set: (k: st
 const Err = ({ t }: { t?: string }) => (t ? <Text style={{ color: C.bad, fontFamily: F.bodyMed, fontSize: 13, marginTop: -8 }}>{t}</Text> : null);
 
 export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => void; onSaved: () => void }) {
+  const { t: tr } = useT();
   const { bottom } = useSafeAreaInsets();
   const [f, setF] = useState<Form>(EMPTY);
   const [base, setBase] = useState<Form>(EMPTY);
@@ -187,13 +189,14 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </View>
             <FillBar pct={pct} color={C.gold} track="#2B3B33" height={8} />
             <Text style={{ fontFamily: F.body, fontSize: 13, color: C.onInk }}>
-              {pct === 100 ? 'Profile complete' : `Add ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '…' : ''}`}
+              {pct === 100 ? tr('profileComplete') : `Add ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '…' : ''}`}
             </Text>
           </Card>
         </FadeIn>
 
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><LangToggle /></View>
         <Segmented value={ptab} onChange={(k) => setPtab(k as any)}
-          options={[{ key: 'basics', label: 'Basics' }, { key: 'goals', label: 'Goals' }, { key: 'health', label: 'Health' }, { key: 'account', label: 'Account' }]} />
+          options={[{ key: 'basics', label: tr('tabBasics') }, { key: 'goals', label: tr('tabGoals') }, { key: 'health', label: tr('tabHealth') }, { key: 'account', label: tr('tabAccount') }]} />
 
         {ptab === 'goals' && loaded && targets?.available && (
           <FadeIn delay={100}>
@@ -301,10 +304,10 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         <Section title="Account" delay={340}>
           <View style={{ gap: 3 }}><K size={10}>Signed in as</K><Text style={s.body}>{email}</Text></View>
           <View style={{ gap: 3 }}><K size={10}>Server</K><Text style={{ fontFamily: F.mono, fontSize: 12, color: C.fg }}>{getBaseUrl()}</Text></View>
-          <Button kind="tonal" title="Share my 7-day food summary" onPress={shareReport} />
+          <Button kind="tonal" title={tr('shareSummary')} onPress={shareReport} />
           {admin && <Button kind="tonal" title="Review products (admin)" onPress={() => setReviewing(true)} />}
-          <Button kind="tonal" title="Log out" onPress={async () => { await setToken(null); onLogout(); }} />
-          <Press accessibilityRole="button" onPress={confirmDelete} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}><K color={C.bad}>Delete my account</K></Press>
+          <Button kind="tonal" title={tr('logOut')} onPress={async () => { await setToken(null); onLogout(); }} />
+          <Press accessibilityRole="button" onPress={confirmDelete} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}><K color={C.bad}>{tr('deleteAccount')}</K></Press>
         </Section>
         )}
         <Text style={s.muted}>Nutrition guidance only, not medical advice.</Text>
@@ -313,7 +316,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
       {showSaveBar && (
         <SheetIn style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line, gap: 8 }}>
           {hasErrors && <Text style={{ color: C.bad, fontFamily: F.bodyMed, fontSize: 13 }}>Fix the highlighted fields to save.</Text>}
-          <Button title={saved && !dirty ? 'Saved ✓' : 'Save profile'} onPress={save} busy={busy} disabled={hasErrors || (!dirty && saved)} />
+          <Button title={saved && !dirty ? tr('saved') : tr('saveProfile')} onPress={save} busy={busy} disabled={hasErrors || (!dirty && saved)} />
         </SheetIn>
       )}
       <View style={{ height: 0, marginBottom: bottom ? 0 : 0 }} />

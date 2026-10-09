@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.ratelimit import limit
 from app.api.deps import is_admin, current_user, get_db
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
@@ -35,7 +36,7 @@ def _user_payload(u: User) -> dict:
 
 
 @router.post("/auth/register", status_code=201, tags=["auth"])
-def register(body: RegisterIn, db: Session = Depends(get_db)):
+def register(body: RegisterIn, db: Session = Depends(get_db), _rl: None = Depends(limit("register", 10, "ip"))):
     s = get_settings()
     user = User(email=body.email.lower(), password_hash=hash_password(body.password), consent_version=s.consent_version)
     user.profile = UserProfile()
@@ -50,7 +51,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 
 @router.post("/auth/login", tags=["auth"])
-def login(body: LoginIn, db: Session = Depends(get_db)):
+def login(body: LoginIn, db: Session = Depends(get_db), _rl: None = Depends(limit("login", 10, "ip"))):
     user = db.scalar(select(User).where(User.email == body.email.lower()))
     ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
     if not user or not ok:

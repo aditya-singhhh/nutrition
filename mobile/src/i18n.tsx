@@ -28,6 +28,12 @@ const EN = {
   t_community: 'Community data · unchecked',
   disclaimer: 'Guidance only, not medical advice.',
   better: 'Healthier options', betterNone: 'No better match found yet. More scans improve this.', betterLess_sugar: 'less sugar', betterLess_salt: 'less salt', betterLess_sat_fat: 'less saturated fat', betterMore_fibre: 'more fibre', betterMore_protein: 'more protein', vs: 'vs this',
+  tagline: 'Know what’s on your plate', logIn: 'Log in', createAccount: 'Create account', email: 'Email', password: 'Password (10+ characters)',
+  showPw: 'Show', hidePw: 'Hide', consent: 'I agree to the terms and consent to my health information being used to personalise nutrition guidance.',
+  askTitle: 'Ask', askHello: 'Ask me anything about food. I use your profile and today’s meals to answer.', askPlaceholder: 'Ask about food or your health goal…',
+  thinking: 'Thinking…', important: 'Important', sq1: 'What should I cook for dinner?', sq2: 'Is masala dosa ok for me?', sq3: 'Tips for my health goal', sq4: 'How much protein today?',
+  tabBasics: 'Basics', tabGoals: 'Goals', tabHealth: 'Health', tabAccount: 'Account', saveProfile: 'Save profile', saved: 'Saved ✓', profileComplete: 'Profile complete',
+  shareSummary: 'Share my 7-day food summary', logOut: 'Log out', deleteAccount: 'Delete my account',
   language: 'Language', noScoreWhy: 'Not enough data to judge this. Scan its nutrition table.',
 };
 const HI: typeof EN = {
@@ -54,6 +60,12 @@ const HI: typeof EN = {
   t_community: 'कम्युनिटी डेटा · अजाँचा',
   disclaimer: 'सिर्फ़ जानकारी है, चिकित्सकीय सलाह नहीं।',
   better: 'बेहतर विकल्प', betterNone: 'अभी कोई बेहतर विकल्प नहीं मिला। ज़्यादा स्कैन से यह बेहतर होगा।', betterLess_sugar: 'कम चीनी', betterLess_salt: 'कम नमक', betterLess_sat_fat: 'कम संतृप्त वसा', betterMore_fibre: 'ज़्यादा फ़ाइबर', betterMore_protein: 'ज़्यादा प्रोटीन', vs: 'इसकी तुलना में',
+  tagline: 'जानिए आपकी थाली में क्या है', logIn: 'लॉग इन', createAccount: 'खाता बनाएँ', email: 'ईमेल', password: 'पासवर्ड (कम से कम 10 अक्षर)',
+  showPw: 'दिखाएँ', hidePw: 'छुपाएँ', consent: 'मैं शर्तों से सहमत हूँ और पोषण संबंधी सुझाव देने के लिए अपनी सेहत की जानकारी के उपयोग की अनुमति देता/देती हूँ।',
+  askTitle: 'पूछें', askHello: 'खाने के बारे में कुछ भी पूछें। मैं आपकी प्रोफ़ाइल और आज के भोजन के हिसाब से जवाब देता हूँ।', askPlaceholder: 'खाने या सेहत के लक्ष्य के बारे में पूछें…',
+  thinking: 'सोच रहे हैं…', important: 'ज़रूरी', sq1: 'आज रात खाने में क्या बनाऊँ?', sq2: 'क्या मसाला डोसा मेरे लिए ठीक है?', sq3: 'मेरे लक्ष्य के लिए सुझाव', sq4: 'आज कितना प्रोटीन लिया?',
+  tabBasics: 'बुनियादी', tabGoals: 'लक्ष्य', tabHealth: 'सेहत', tabAccount: 'खाता', saveProfile: 'प्रोफ़ाइल सेव करें', saved: 'सेव हो गया ✓', profileComplete: 'प्रोफ़ाइल पूरी',
+  shareSummary: 'मेरा 7 दिन का खान-पान सारांश भेजें', logOut: 'लॉग आउट', deleteAccount: 'मेरा खाता हटाएँ',
   language: 'भाषा', noScoreWhy: 'आँकड़े कम हैं। इसकी न्यूट्रिशन टेबल स्कैन करें।',
 };
 const DICT = { en: EN, hi: HI };

@@ -12,6 +12,7 @@ from app.ai.providers import AIGateway
 from app.db_migrate import ensure_columns
 from app.api.v1 import admin, auth_users, meals_ai, scan_foods
 from app.core.config import Settings, get_settings
+from app.core.ratelimit import RateLimiter
 from app.core.db import make_engine, make_session_factory
 from app.models import Base
 from app.seed import seed_all
@@ -37,6 +38,7 @@ def create_app(settings: Settings | None = None, gateway: AIGateway | None = Non
                   description="Nutrition guidance, not medical advice.")
     app.state.session_factory = factory
     app.state.engine = engine
+    app.state.limiter = RateLimiter(enabled=s.rate_limit)
     app.state.gateway = gateway or AIGateway.from_settings(s)
 
     @app.middleware("http")

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.providers import AIGateway, DishCandidate, ProviderError, ProviderNotConfigured
+from app.core.ratelimit import limit
 from app.api.deps import current_user, decode_image_b64, get_db, get_gateway, read_image
 from app.core.config import get_settings
 from app.domain.barcode import InvalidBarcode, normalize_barcode
@@ -136,7 +137,7 @@ def scan_label_text(body: LabelTextIn, user: User = Depends(current_user)):
     return analyze_label_text(body.text, user, body.nutrients_per_100g)
 
 
-@router.post("/scan/label", tags=["scan"])
+@router.post("/scan/label", tags=["scan"], dependencies=[Depends(limit("scan", 15))])
 def scan_label(image: UploadFile = File(...), user: User = Depends(current_user), db: Session = Depends(get_db),
                gw: AIGateway = Depends(get_gateway)):
     data = read_image(image, get_settings().max_upload_bytes)
@@ -202,7 +203,7 @@ def _food_response(db: Session, user: User, gw: AIGateway, data: bytes, cands: l
             "correction_endpoint": f"/api/v1/predictions/{pred.id}/feedback"}
 
 
-@router.post("/scan/food-photo", tags=["scan"])
+@router.post("/scan/food-photo", tags=["scan"], dependencies=[Depends(limit("scan", 15))])
 def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_user), db: Session = Depends(get_db),
                     gw: AIGateway = Depends(get_gateway)):
     data = read_image(image, get_settings().max_upload_bytes)
@@ -210,7 +211,7 @@ def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_
     return _food_response(db, user, gw, data, cands)
 
 
-@router.post("/scan/smart", tags=["scan"])
+@router.post("/scan/smart", tags=["scan"], dependencies=[Depends(limit("scan", 15))])
 def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Session = Depends(get_db),
                gw: AIGateway = Depends(get_gateway)):
     """One scan button: the photo is food (-> dish estimates) or a label (-> ingredient analysis). Base64 JSON body,

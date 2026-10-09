@@ -4,10 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { FadeIn, SheetIn } from '../anim';
 import { api, getBaseUrl, setBaseUrl, setToken } from '../api';
-import { Button, Display, ErrorText, Field, K, Segmented, s } from '../components/ui';
+import { Button, Display, ErrorText, Field, K, LangToggle, Segmented, s } from '../components/ui';
+import { useT } from '../i18n';
 import { C, F } from '../theme';
 
 export default function AuthScreen({ onDone }: { onDone: () => void }) {
+  const { t: tr } = useT();
   const { top, bottom } = useSafeAreaInsets();
   const [server, setServer] = useState(getBaseUrl());
   const [editServer, setEditServer] = useState(false);
@@ -31,6 +33,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: C.ink }}>
+      <View style={{ position: 'absolute', right: 16, top: top + 8, zIndex: 2 }}><LangToggle /></View>
       <View style={{ paddingTop: top + 56, paddingHorizontal: 24, gap: 18 }}>
         <FadeIn>
           <Svg width={64} height={64} viewBox="0 0 64 64">
@@ -39,28 +42,28 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
           </Svg>
         </FadeIn>
         <FadeIn delay={100}><Display size={56} color="#fff">Health{'\n'}Companion</Display></FadeIn>
-        <FadeIn delay={200}><K color={C.onInk} size={12}>Know what's on your plate</K></FadeIn>
+        <FadeIn delay={200}><K color={C.onInk} size={12}>{tr('tagline')}</K></FadeIn>
       </View>
       <View style={{ flex: 1 }} />
       <SheetIn style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '72%' }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottom, 12) + 20, gap: 20 }}>
-          <Segmented options={[{ key: 'login', label: 'Log in' }, { key: 'register', label: 'Create account' }]} value={mode}
+          <Segmented options={[{ key: 'login', label: tr('logIn') }, { key: 'register', label: tr('createAccount') }]} value={mode}
             onChange={(k) => { setMode(k as any); setErr(null); }} />
-          <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+          <Field label={tr('email')} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
           <View>
-            <Field label="Password (10+ characters)" value={password} onChangeText={setPassword} secureTextEntry={!show} autoCapitalize="none" />
+            <Field label={tr('password')} value={password} onChangeText={setPassword} secureTextEntry={!show} autoCapitalize="none" />
             <Text onPress={() => setShow(!show)} accessibilityRole="button" style={{ position: 'absolute', right: 14, top: 18, fontFamily: F.label, fontSize: 10, letterSpacing: 1.4, color: C.accent }}>
-              {show ? 'HIDE' : 'SHOW'}
+              {show ? tr('hidePw') : tr('showPw')}
             </Text>
           </View>
           {mode === 'register' && (
             <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
               <Switch value={consent} onValueChange={setConsent} trackColor={{ true: C.accent }} thumbColor="#fff" />
-              <Text style={[s.muted, { flex: 1 }]}>I agree to the terms and consent to my health information being used to personalise nutrition guidance.</Text>
+              <Text style={[s.muted, { flex: 1 }]}>{tr('consent')}</Text>
             </View>
           )}
           <ErrorText>{err}</ErrorText>
-          <Button title={mode === 'login' ? 'Log in' : 'Create account'} onPress={submit} busy={busy}
+          <Button title={mode === 'login' ? tr('logIn') : tr('createAccount')} onPress={submit} busy={busy}
             disabled={!email || password.length < 10 || (mode === 'register' && !consent)} />
           <View style={{ borderTopWidth: 1, borderColor: C.line, paddingTop: 16, gap: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.orchestrator import ChatOrchestrator
+from app.core.ratelimit import limit
 from app.api.deps import current_user, get_db, get_gateway
 from app.domain.barcode import InvalidBarcode, normalize_barcode
 from app.domain.nutrition import round_nutrients, scale_nutrients, sum_nutrients
@@ -94,7 +95,7 @@ def nutrition_today(day: date | None = Query(None, alias="date"), user: User = D
 
 # ------------------------------------------------------------------ AI
 @router.post("/chat", tags=["ai"])
-def chat(body: ChatIn, user: User = Depends(current_user), db: Session = Depends(get_db), gw=Depends(get_gateway)):
+def chat(body: ChatIn, user: User = Depends(current_user), db: Session = Depends(get_db), gw=Depends(get_gateway), _rl: None = Depends(limit("chat", 20))):
     turn = ChatOrchestrator(gw).handle(db, user, body.message, body.session_id)
     return {"reply": turn.reply, "session_id": turn.session_id, "intent": turn.intent,
             "tools_used": turn.tools_used, "safety_level": turn.safety_level,
