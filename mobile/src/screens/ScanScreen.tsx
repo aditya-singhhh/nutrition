@@ -79,7 +79,8 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     const r: any = await run(() => api.scanSmart(b64));
     if (!r) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (r.kind === 'label') setResult({ ...r, name: 'Scanned label' });
+    if (r.kind === 'product') { setResult(r); setTarget({ barcode: r.barcode }); }
+    else if (r.kind === 'label') setResult({ ...r, name: 'Scanned label' });
     else setPhoto({
       id: r.prediction_id, unrecognised: r.unrecognised ?? [],
       items: r.items.map((i: any): PhotoItem => ({
@@ -177,7 +178,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
               </Card>
             </FadeIn>
           ))}
-          {photo.unrecognised.length > 0 && <Card tone="warn"><Text style={s.body}>We couldn't match some items to our food list, so no numbers are shown for them. Try Search to add them.</Text></Card>}
+          {photo.unrecognised.length > 0 && <Card tone="warn"><Text style={s.body}>We saw {photo.unrecognised.join(', ')}, but {photo.unrecognised.length > 1 ? 'they are' : 'it is'} not in our food list yet, so we won't guess numbers. Try Search to find something close.</Text></Card>}
           {msg && <Text style={{ color: C.accent, fontFamily: F.bodyBold }}>{msg}</Text>}
           <ErrorText>{err}</ErrorText>
         </Screen>

@@ -190,3 +190,38 @@ def test_image_probe_sends_valid_png(monkeypatch):
     assert inline["mime_type"] == "image/png"
     import base64
     assert base64.b64decode(inline["data"])[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def _smart_client(monkeypatch, payload):
+    import base64
+    from app.ai.providers import AIGateway
+    from tests.conftest import make_client, register
+    monkeypatch.setattr(providers.httpx, "post", _fake_post(json.dumps(payload)))
+    c = make_client(AIGateway(vision=GeminiVisionProvider("k", "m")))
+    return c, register(c), base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 200).decode()
+
+
+def test_smart_matches_dish_by_name_when_slug_missing(monkeypatch):
+    c, auth, img = _smart_client(monkeypatch, {"kind": "food", "items": [
+        {"name": "Masala Dosa", "slug": "", "confidence": 0.8, "grams_min": 120, "grams_max": 180}]})
+    r = c.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth)
+    assert r.status_code == 200 and r.json()["items"][0]["food"]["slug"] == "masala-dosa"
+
+
+def test_smart_reports_unmatched_dish_instead_of_failing(monkeypatch):
+    c, auth, img = _smart_client(monkeypatch, {"kind": "food", "items": [
+        {"name": "Zzyzx casserole", "slug": "", "confidence": 0.7, "grams_min": 100, "grams_max": 200}]})
+    r = c.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth)
+    assert r.status_code == 200 and r.json()["items"] == [] and r.json()["unrecognised"] == ["Zzyzx casserole"]
+
+
+def test_smart_reads_barcode_digits_and_looks_up_product(monkeypatch):
+    c, auth, img = _smart_client(monkeypatch, {"kind": "product", "barcode": "8900000000029"})
+    r = c.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth)
+    assert r.status_code == 200 and r.json()["kind"] == "product" and r.json()["barcode"] == "8900000000029"
+
+
+def test_smart_none_gives_friendly_422(monkeypatch):
+    c, auth, img = _smart_client(monkeypatch, {"kind": "none", "items": []})
+    r = c.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "nothing_recognised"

@@ -110,10 +110,21 @@ class VisionProvider(Protocol):
 
 
 @dataclass
+class DishGuess:
+    """A dish the model saw that is not (by id) in our food list; the caller may fuzzy-match the name."""
+    name: str
+    confidence: float
+    portion_g_min: float
+    portion_g_max: float
+
+
+@dataclass
 class SmartScan:
-    kind: str  # food | label | none
+    kind: str  # food | label | product | none
     dishes: list = field(default_factory=list)  # list[DishCandidate] when kind == food
+    unmatched: list = field(default_factory=list)  # list[DishGuess]
     label_text: str = ""  # when kind == label
+    barcode: str = ""  # digits read from a visible barcode number, when kind == product
 
 
 class NullVisionProvider:
@@ -331,22 +342,25 @@ class GeminiVisionProvider:
         return self._parse_items(items, allowed)
 
     def smart(self, image: bytes, known: list[tuple[str, str]] | None = None) -> SmartScan:
-        """One call: decide whether the photo shows food or a packaged-food label, and extract accordingly."""
+        """One call: decide whether the photo shows food, a packaged-food label or a barcode, and extract accordingly."""
         import json
+        import re
 
         known = known or []
         allowed = {slug for slug, _ in known}
         menu = "\n".join(f"{slug} = {name}" for slug, name in known)
         prompt = (
             "You are the scanner of an Indian nutrition app. Decide what the photo shows.\n"
-            '- If it shows prepared food or a meal, set kind to "food" and list dishes using ONLY these ids:\n'
+            '- Prepared food or a meal: kind "food". For each distinct dish give "name" (plain English dish name) and, if it '
+            "matches one of these ids, its \"slug\":\n"
             f"{menu}\n"
-            '- If it mainly shows the printed ingredients/nutrition text of a packaged product, set kind to "label" and '
-            "transcribe the ingredient list and additive codes exactly as printed into label_text.\n"
-            '- Otherwise set kind to "none".\n'
-            'Return JSON: {"kind":"food|label|none","items":[{"slug":"<id>","confidence":0..1,"grams_min":number,'
-            '"grams_max":number}],"label_text":"..."}. Items only for kind food: one per distinct dish, realistic edible-weight '
-            "range in grams, leave out dishes not in the list. Never return calories or other nutrition values."
+            '- A packaged product whose barcode NUMBER is readable: kind "product" and put the digits in "barcode".\n'
+            '- The printed ingredients/nutrition text of a packaged product: kind "label", transcribe the ingredient list and '
+            'additive codes exactly as printed into "label_text".\n'
+            '- Otherwise kind "none".\n'
+            'Return JSON: {"kind":"food|product|label|none","items":[{"name":"...","slug":"<id or empty>","confidence":0..1,'
+            '"grams_min":number,"grams_max":number}],"barcode":"","label_text":""}. For food give a realistic edible-weight '
+            "range in grams for the portion shown. Never return calories or other nutrition values."
         )
         raw = self._c.generate(prompt, image, json_out=True)
         try:
@@ -354,11 +368,28 @@ class GeminiVisionProvider:
             kind = str(data.get("kind", "none"))
         except (ValueError, AttributeError) as e:
             raise ProviderError("Gemini returned unreadable output") from e
-        if kind == "food":
-            dishes = self._parse_items(data.get("items", []), allowed)
-            return SmartScan("food", dishes) if dishes else SmartScan("none")
+        digits = re.sub(r"\D", "", str(data.get("barcode", "")))
+        if 8 <= len(digits) <= 14:
+            return SmartScan("product", barcode=digits)
         if kind == "label" and str(data.get("label_text", "")).strip():
             return SmartScan("label", label_text=str(data["label_text"]).strip())
+        if kind == "food":
+            dishes, unmatched = [], []
+            for it in data.get("items", []) if isinstance(data.get("items"), list) else []:
+                try:
+                    conf = min(1.0, max(0.0, float(it["confidence"])))
+                    lo, hi = sorted((float(it["grams_min"]), float(it["grams_max"])))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if lo <= 0 or hi > 3000:
+                    continue
+                slug = str(it.get("slug") or "")
+                if slug in allowed:
+                    dishes.append(DishCandidate(slug, conf, lo, hi))
+                elif str(it.get("name") or "").strip():
+                    unmatched.append(DishGuess(str(it["name"]).strip()[:60], conf, lo, hi))
+            if dishes or unmatched:
+                return SmartScan("food", dishes, unmatched)
         return SmartScan("none")
 
     @staticmethod

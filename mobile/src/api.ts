@@ -90,6 +90,7 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ access_token: string }>('POST', '/auth/login', { email, password }),
   me: () => request('GET', '/users/me'),
+  deleteAccount: () => request('DELETE', '/users/me'),
   updateProfile: (body: unknown) => request('PUT', '/users/me/profile', body),
   today: () => request('GET', '/nutrition/today'),
   scanBarcode: (barcode: string) => request('POST', '/scan/barcode', { barcode }),

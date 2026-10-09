@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ai.providers import AIGateway, ProviderError, ProviderNotConfigured
+from app.ai.providers import AIGateway, DishCandidate, ProviderError, ProviderNotConfigured
 from app.api.deps import current_user, decode_image_b64, get_db, get_gateway, read_image
 from app.core.config import get_settings
 from app.domain.barcode import InvalidBarcode, normalize_barcode
@@ -149,8 +149,8 @@ def _call_provider(fn):
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Recognition service problem: {e}") from None
 
 
-def _food_response(db: Session, user: User, gw: AIGateway, data: bytes, cands: list) -> dict:
-    items, unknown = [], []
+def _food_response(db: Session, user: User, gw: AIGateway, data: bytes, cands: list, unmatched_names: list | None = None) -> dict:
+    items, unknown = [], list(unmatched_names or [])
     for c in cands:
         f = catalog.get_food_by_slug(db, c.food_slug)
         if f is None:  # model proposed a dish we have no verified data for - never invent nutrition for it
@@ -193,8 +193,21 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
     which is more reliable than multipart from React Native."""
     data = decode_image_b64(body.image_base64, get_settings().max_upload_bytes)
     res = _call_provider(lambda: gw.vision.smart(data, _known_foods(db)))
+    if res.kind == "product":
+        prod = _product_or_404(db, _barcode_or_422(res.barcode))
+        audit(db, user.id, "scan_barcode", "product", prod.id)
+        return {**catalog.evaluate_product(prod, user_context(user)), "kind": "product"}
     if res.kind == "food":
-        return _food_response(db, user, gw, data, res.dishes)
+        dishes, names = list(res.dishes), []
+        have = {d.food_slug for d in dishes}
+        for g in res.unmatched:  # model named a dish without a valid id: try our own name/alias search
+            hit = next(iter(catalog.search_foods(db, g.name, 1)), None)
+            if hit is not None and hit.slug not in have:
+                dishes.append(DishCandidate(hit.slug, g.confidence * 0.85, g.portion_g_min, g.portion_g_max))
+                have.add(hit.slug)
+            elif hit is None:
+                names.append(g.name)
+        return _food_response(db, user, gw, data, dishes, names)
     if res.kind == "label":
         out = analyze_label_text(res.label_text, user, None)
         pred = ModelPrediction(user_id=user.id, kind="label_ocr", model_name=gw.vision.name, model_version=gw.vision.version,
@@ -206,7 +219,7 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
                     "note": "Please check the text we read against the pack."})
         return out
     raise HTTPException(422, {"code": "nothing_recognised",
-                              "message": "We couldn't see food or a product label. Try again with better light and the item filling the frame."})
+                              "message": "We couldn't recognise this picture. Food photos, ingredient labels and barcode numbers work best, in good light."})
 
 
 _status_cache: dict = {}
