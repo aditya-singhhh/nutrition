@@ -4,6 +4,7 @@ import hashlib
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.providers import AIGateway, ProviderError, ProviderNotConfigured
@@ -14,9 +15,9 @@ from app.domain.compat import FoodView, evaluate_personal
 from app.domain.ingredients import analyze_ingredients
 from app.domain.nutrition import round_nutrients, scale_range
 from app.domain.scoring import score_food
-from app.models import ModelPrediction, User
+from app.models import FoodItem, ModelPrediction, User
 from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn
-from app.services import catalog
+from app.services import catalog, openfoodfacts
 from app.services.audit import audit
 from app.services.catalog import user_context
 
@@ -35,6 +36,8 @@ def _barcode_or_422(raw: str) -> str:
 
 def _product_or_404(db: Session, code: str):
     prod = catalog.get_product(db, code)
+    if prod is None and get_settings().off_lookup:
+        prod = openfoodfacts.lookup_and_store(db, code)
     if prod is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, {
             "code": "product_not_found", "barcode": code,
@@ -137,7 +140,8 @@ def scan_food_photo(image: UploadFile = File(...), user: User = Depends(current_
                     gw: AIGateway = Depends(get_gateway)):
     data = read_image(image, get_settings().max_upload_bytes)
     try:
-        cands = gw.vision.detect_dishes(data)
+        known = [(f.slug, f.name) for f in db.scalars(select(FoodItem))]
+        cands = gw.vision.detect_dishes(data, known)
     except ProviderNotConfigured as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from None
     except ProviderError as e:

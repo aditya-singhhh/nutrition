@@ -29,8 +29,12 @@ class Settings(BaseSettings):
 
     # Provider selection (AI Gateway). Business logic never imports a vendor SDK directly.
     llm_provider: str = "mock"  # mock | anthropic
-    vision_provider: str = "null"  # null | mock
-    ocr_provider: str = "null"  # null | mock
+    vision_provider: str = "null"  # null | mock | gemini (auto-enabled when HC_GEMINI_API_KEY is set)
+    ocr_provider: str = "null"  # null | mock | gemini (auto-enabled when HC_GEMINI_API_KEY is set)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    # Look unknown barcodes up in Open Food Facts (public, crowd-sourced, unverified) and cache them.
+    off_lookup: bool = True
     llm_model: str = ""  # required when llm_provider != mock
     llm_api_key: str = ""
 

@@ -1,6 +1,7 @@
 import os
 
 os.environ["HC_ENV"] = "test"
+os.environ["HC_OFF_LOOKUP"] = "false"
 os.environ["HC_JWT_SECRET"] = "test-secret-" + "x" * 32
 
 import pytest  # noqa: E402
@@ -53,3 +54,16 @@ def ai_client():
     return make_client(gw)
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+@pytest.fixture
+def db():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.models import Base
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    with sessionmaker(engine)() as s:
+        yield s

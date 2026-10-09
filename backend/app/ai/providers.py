@@ -104,13 +104,13 @@ class VisionProvider(Protocol):
     name: str
     version: str
 
-    def detect_dishes(self, image: bytes) -> list[DishCandidate]: ...
+    def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]: ...
 
 
 class NullVisionProvider:
     name, version = "null", "0"
 
-    def detect_dishes(self, image: bytes) -> list[DishCandidate]:
+    def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
         raise ProviderNotConfigured("No food-recognition model is configured (HC_VISION_PROVIDER)")
 
 
@@ -120,7 +120,7 @@ class MockVisionProvider:
     def __init__(self, candidates: list[DishCandidate] | None = None):
         self.candidates = candidates or []
 
-    def detect_dishes(self, image: bytes) -> list[DishCandidate]:
+    def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
         return list(self.candidates)
 
 
@@ -155,6 +155,102 @@ class MockOCRProvider:
         return OCRResult(text=self.text, confidence=0.9)
 
 
+# ---------------------------------------------------------------- Gemini (vision + OCR)
+def _mime(image: bytes) -> str:
+    if image[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if image[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if image[:4] == b"RIFF" and image[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
+
+
+class _GeminiClient:
+    _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+    def __init__(self, api_key: str, model: str, timeout: float = 45.0):
+        if not api_key:
+            raise ProviderNotConfigured("HC_GEMINI_API_KEY is required for the gemini provider")
+        self._key, self._model, self._timeout = api_key, model, timeout
+
+    def generate(self, prompt: str, image: bytes, *, json_out: bool) -> str:
+        import base64
+
+        body: dict = {
+            "contents": [{"parts": [{"text": prompt},
+                                    {"inline_data": {"mime_type": _mime(image), "data": base64.b64encode(image).decode()}}]}],
+            "generationConfig": {"temperature": 0},
+        }
+        if json_out:
+            body["generationConfig"]["responseMimeType"] = "application/json"
+        try:
+            r = httpx.post(f"{self._BASE}/{self._model}:generateContent", json=body,
+                           headers={"x-goog-api-key": self._key}, timeout=self._timeout)
+            r.raise_for_status()
+            parts = r.json()["candidates"][0]["content"]["parts"]
+            return "".join(p.get("text", "") for p in parts)
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:  # never log the key or the image
+            raise ProviderError(f"Gemini call failed: {type(e).__name__}") from e
+
+
+class GeminiVisionProvider:
+    """Names dishes from a photo. The model may ONLY pick from our known food list and gives no nutrition numbers;
+    all nutrients are computed from the verified food table by the caller."""
+
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str):
+        self._c = _GeminiClient(api_key, model)
+        self.version = model
+
+    def detect_dishes(self, image: bytes, known: list[tuple[str, str]] | None = None) -> list[DishCandidate]:
+        import json
+
+        known = known or []
+        allowed = {slug for slug, _ in known}
+        menu = "\n".join(f"{slug} = {name}" for slug, name in known)
+        prompt = (
+            "You identify food in a photo for an Indian nutrition app. Choose ONLY from this list of food ids:\n"
+            f"{menu}\n\n"
+            'Return JSON: {"items":[{"slug":"<id from the list>","confidence":0..1,"grams_min":number,"grams_max":number}]}. '
+            "One entry per distinct dish visible. Give a realistic edible-weight range in grams for the portion shown. "
+            "If a dish is not in the list, leave it out. If there is no food, return {\"items\":[]}. "
+            "Do not return calories or any other nutrition values."
+        )
+        raw = self._c.generate(prompt, image, json_out=True)
+        try:
+            items = json.loads(raw).get("items", [])
+        except (ValueError, AttributeError) as e:
+            raise ProviderError("Gemini returned unreadable output") from e
+        out: list[DishCandidate] = []
+        for it in items if isinstance(items, list) else []:
+            try:
+                slug = str(it["slug"])
+                conf = min(1.0, max(0.0, float(it["confidence"])))
+                lo, hi = sorted((float(it["grams_min"]), float(it["grams_max"])))
+            except (KeyError, TypeError, ValueError):
+                continue
+            if slug not in allowed or lo <= 0 or hi > 3000:
+                continue
+            out.append(DishCandidate(slug, conf, lo, hi))
+        return out
+
+
+class GeminiOCRProvider:
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str):
+        self._c = _GeminiClient(api_key, model)
+        self.version = model
+
+    def extract_text(self, image: bytes, languages: tuple[str, ...] = ("en", "hi")) -> OCRResult:
+        text = self._c.generate(
+            "Transcribe the ingredient list and any additive codes from this food label exactly as printed. "
+            "Output plain text only, no commentary. If there is no label text, output nothing.", image, json_out=False)
+        return OCRResult(text=text.strip(), confidence=None)
+
+
 # ---------------------------------------------------------------- Gateway
 @dataclass
 class AIGateway:
@@ -171,6 +267,15 @@ class AIGateway:
             llm = MockLLMProvider()
         else:
             raise ProviderNotConfigured(f"unknown llm provider: {s.llm_provider}")
-        vision: VisionProvider = MockVisionProvider() if s.vision_provider == "mock" else NullVisionProvider()
-        ocr: OCRProvider = MockOCRProvider() if s.ocr_provider == "mock" else NullOCRProvider()
+        gem = bool(s.gemini_api_key)
+        vision: VisionProvider = NullVisionProvider()
+        if s.vision_provider == "mock":
+            vision = MockVisionProvider()
+        elif s.vision_provider == "gemini" or (gem and s.vision_provider == "null"):
+            vision = GeminiVisionProvider(s.gemini_api_key, s.gemini_model)
+        ocr: OCRProvider = NullOCRProvider()
+        if s.ocr_provider == "mock":
+            ocr = MockOCRProvider()
+        elif s.ocr_provider == "gemini" or (gem and s.ocr_provider == "null"):
+            ocr = GeminiOCRProvider(s.gemini_api_key, s.gemini_model)
         return cls(llm=llm, vision=vision, ocr=ocr)
