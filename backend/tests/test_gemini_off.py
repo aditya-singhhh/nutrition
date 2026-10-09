@@ -9,6 +9,13 @@ from app.models import PackagedProduct
 from app.services import openfoodfacts as off
 
 
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    def get(url, params=None, headers=None, timeout=None):
+        return httpx.Response(403, json={}, request=httpx.Request("GET", url))
+    monkeypatch.setattr(providers.httpx, "get", get)
+
+
 def _fake_post(payload_text):
     def post(url, json=None, headers=None, timeout=None):
         assert headers["x-goog-api-key"] in ("k", "AQ.k")
@@ -112,29 +119,57 @@ def test_product_without_nutrients_is_not_scored():
     assert r["quality_score"]["score"] is None
 
 
-def test_gemini_falls_back_across_models_and_routes(monkeypatch):
+def _fake_get(models):
+    def get(url, params=None, headers=None, timeout=None):
+        req = httpx.Request("GET", url)
+        if models is None:
+            return httpx.Response(403, json={}, request=req)
+        return httpx.Response(200, json={"models": [{"name": f"models/{m}", "supportedGenerationMethods": ["generateContent"]}
+                                                    for m in models]}, request=req)
+    return get
+
+
+def test_gemini_uses_models_google_lists(monkeypatch):
     seen = []
 
     def post(url, json=None, headers=None, timeout=None):
         seen.append(url)
         req = httpx.Request("POST", url)
-        if "aiplatform" in url and "gemini-2.0-flash" in url:
-            return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}, request=req)
-        return httpx.Response(404, json={}, request=req)
+        ok = "gemini-3-flash" in url and "generativelanguage" in url
+        return httpx.Response(200 if ok else 404, request=req,
+                              json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]} if ok else {})
     monkeypatch.setattr(providers.httpx, "post", post)
+    monkeypatch.setattr(providers.httpx, "get", _fake_get(["gemini-3-flash", "gemini-3-flash-image", "gemini-3-pro"]))
     c = providers._GeminiClient("AQ.k", "gemini-9-bogus")
-    assert c.probe() == {"ok": True, "route": "vertex-express", "model": "gemini-2.0-flash"}
+    assert c.probe() == {"ok": True, "route": "ai-studio", "model": "gemini-3-flash"}
     n = len(seen)
     c.generate("hi", None, json_out=False)
     assert len(seen) == n + 1  # remembered the working combination
+
+
+def test_gemini_retries_503_then_succeeds(monkeypatch):
+    calls = []
+
+    def post(url, json=None, headers=None, timeout=None):
+        calls.append(1)
+        req = httpx.Request("POST", url)
+        if len(calls) == 1:
+            return httpx.Response(503, json={}, request=req)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}, request=req)
+    monkeypatch.setattr(providers.httpx, "post", post)
+    monkeypatch.setattr(providers.httpx, "get", _fake_get(None))
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    assert providers._GeminiClient("k", "gemini-2.5-flash").probe()["ok"] is True
+    assert len(calls) == 2
 
 
 def test_gemini_probe_reports_failure(monkeypatch):
     def post(url, json=None, headers=None, timeout=None):
         return httpx.Response(403, json={}, request=httpx.Request("POST", url))
     monkeypatch.setattr(providers.httpx, "post", post)
+    monkeypatch.setattr(providers.httpx, "get", _fake_get(None))
     r = providers._GeminiClient("k", "m").probe()
-    assert r["ok"] is False and "HTTP 403" in r["error"] and "k" != r["error"]
+    assert r["ok"] is False and "HTTP 403" in r["error"] and "k" not in r["error"].split("(")[0]
 
 
 def test_ai_status_endpoint(client):

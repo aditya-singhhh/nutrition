@@ -181,37 +181,60 @@ def _mime(image: bytes) -> str:
     return "image/jpeg"
 
 
-_FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash")
+_FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest",
+                    "gemini-2.0-flash", "gemini-1.5-flash")
+_API = "https://generativelanguage.googleapis.com/v1beta"
 _ROUTES = {
-    "ai-studio": "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+    "ai-studio": _API + "/models/{m}:generateContent",
     "vertex-express": "https://aiplatform.googleapis.com/v1/publishers/google/models/{m}:generateContent",
 }
+_SKIP = ("image", "tts", "live", "audio", "native", "thinking", "embedding", "robotics", "computer", "learn")
 
 
 class _GeminiClient:
-    """Calls Gemini. Tries the configured model, then known fallbacks, on both Google endpoints (AI Studio keys and
-    Vertex 'express' keys, which start with 'AQ.'), and remembers the combination that worked."""
+    """Calls Gemini. Asks Google which models this key can use (ListModels), tries those and some fallbacks, retries
+    short outages (503), falls back to the Vertex 'express' endpoint, and remembers the combination that worked."""
 
     def __init__(self, api_key: str, model: str, timeout: float = 45.0):
         if not api_key:
             raise ProviderNotConfigured("HC_GEMINI_API_KEY is required for the gemini provider")
-        self._key, self._timeout = api_key, timeout
-        self._models = [m for m in dict.fromkeys([model, *_FALLBACK_MODELS]) if m]
-        first = "vertex-express" if api_key.startswith("AQ.") else "ai-studio"
-        self._routes = [first, *[r for r in _ROUTES if r != first]]
+        self._key, self._timeout, self._configured = api_key, timeout, model
+        self._routes = list(_ROUTES)  # AI Studio first; Vertex express only if that fails
         self.working: tuple[str, str] | None = None  # (route, model)
+        self.available: list[str] = []
+        self._discovered = False
         self.last_error = ""
+
+    def _discover(self) -> None:
+        self._discovered = True
+        try:
+            r = httpx.get(f"{_API}/models", params={"pageSize": 200}, headers={"x-goog-api-key": self._key}, timeout=15.0)
+            r.raise_for_status()
+            names = []
+            for m in r.json().get("models", []):
+                n = str(m.get("name", "")).removeprefix("models/")
+                if "generateContent" in m.get("supportedGenerationMethods", []) and "flash" in n and not any(x in n for x in _SKIP):
+                    names.append(n)
+            self.available = sorted(names, key=lambda n: (("preview" in n) or ("exp" in n), "lite" in n, n))
+        except (httpx.HTTPError, ValueError):
+            self.available = []
+
+    def _candidates(self) -> list[str]:
+        return [m for m in dict.fromkeys([self._configured, *self.available, *_FALLBACK_MODELS]) if m]
 
     def _attempts(self):
         if self.working:
             yield self.working
             return
+        if not self._discovered:
+            self._discover()
         for r in self._routes:
-            for m in self._models:
+            for m in self._candidates():
                 yield r, m
 
     def generate(self, prompt: str, image: bytes | None, *, json_out: bool) -> str:
         import base64
+        import time
 
         parts: list = [{"text": prompt}]
         if image is not None:
@@ -221,28 +244,33 @@ class _GeminiClient:
             body["generationConfig"]["responseMimeType"] = "application/json"
         errors: list[str] = []
         for route, model in self._attempts():
-            try:
-                r = httpx.post(_ROUTES[route].format(m=model), json=body, headers={"x-goog-api-key": self._key},
-                               timeout=self._timeout)
-                r.raise_for_status()
-                out = "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
-                self.working, self.last_error = (route, model), ""
-                return out
-            except httpx.HTTPStatusError as e:  # status code only: never log the key or the image
-                code = e.response.status_code
-                errors.append(f"{route}/{model}: HTTP {code}")
-                if self.working or code in (401, 429):  # key rejected / rate limited: other models won't help
+            for attempt in (1, 2):  # one retry for short outages
+                try:
+                    r = httpx.post(_ROUTES[route].format(m=model), json=body, headers={"x-goog-api-key": self._key},
+                                   timeout=self._timeout)
+                    r.raise_for_status()
+                    out = "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
+                    self.working, self.last_error = (route, model), ""
+                    return out
+                except httpx.HTTPStatusError as e:  # status code only: never log the key or the image
+                    code = e.response.status_code
+                    if code in (500, 502, 503, 504) and attempt == 1:
+                        time.sleep(1.5)
+                        continue
+                    errors.append(f"{route}/{model}: HTTP {code}")
+                    if code == 429 or (self.working and code != 404):
+                        self.last_error = "; ".join(errors[-6:])
+                        raise ProviderError(f"Gemini call failed ({self.last_error})") from e
+                    break  # try the next model
+                except httpx.HTTPError as e:  # network trouble: other models won't help
+                    errors.append(f"{route}/{model}: {type(e).__name__}")
+                    self.last_error = "; ".join(errors[-6:])
+                    raise ProviderError(f"Gemini call failed ({self.last_error})") from e
+                except (KeyError, IndexError, ValueError):
+                    errors.append(f"{route}/{model}: unexpected response")
                     break
-                if code not in (400, 403, 404):
-                    break
-            except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
-                errors.append(f"{route}/{model}: {type(e).__name__}")
-                if self.working:
-                    break
-                if not isinstance(e, (KeyError, IndexError, ValueError)):
-                    break  # network trouble: trying more models won't help
         self.working = None
-        self.last_error = "; ".join(errors[-4:])
+        self.last_error = "; ".join(errors[-6:])
         raise ProviderError(f"Gemini call failed ({self.last_error})")
 
     def probe(self) -> dict:
@@ -250,7 +278,8 @@ class _GeminiClient:
             self.generate("Reply with the single word: ok", None, json_out=False)
             return {"ok": True, "route": self.working[0], "model": self.working[1]} if self.working else {"ok": True}
         except ProviderError as e:
-            return {"ok": False, "error": str(e), "tried_models": self._models, "key_prefix_is_AQ": self._key.startswith("AQ.")}
+            return {"ok": False, "error": str(e), "models_google_offers_this_key": self.available,
+                    "tried_models": self._candidates(), "key_prefix_is_AQ": self._key.startswith("AQ.")}
 
 
 class GeminiVisionProvider:
