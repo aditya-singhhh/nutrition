@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeIn, FillBar, Press, SheetIn } from '../anim';
 import { api, getBaseUrl, request, setToken } from '../api';
@@ -32,8 +32,8 @@ const toggle = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) =
 const num = (t: string) => { const n = parseFloat(t.replace(',', '.')); return Number.isFinite(n) ? n : null; };
 
 type Form = { name: string; age: string; sex: string | null; height: string; weight: string; target: string; activity: string | null; goal: string | null;
-  diet: string | null; region: string | null; lifeStage: string; conditions: string[]; allergies: string[] };
-const EMPTY: Form = { name: '', age: '', sex: null, height: '', weight: '', target: '', activity: null, goal: null, diet: null, region: null, lifeStage: 'none', conditions: [], allergies: [] };
+  diet: string | null; region: string | null; lifeStage: string; conditions: string[]; allergies: string[]; share: boolean };
+const EMPTY: Form = { name: '', age: '', sex: null, height: '', weight: '', target: '', activity: null, goal: null, diet: null, region: null, lifeStage: 'none', conditions: [], allergies: [], share: false };
 
 function bmiInfo(h: number | null, w: number | null) {
   if (!h || !w || h < 100) return null;
@@ -108,7 +108,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         name: p.display_name ?? '', age: p.age ? String(p.age) : '', sex: p.sex ?? null, height: p.height_cm ? String(p.height_cm) : '',
         weight: p.weight_kg ? String(p.weight_kg) : '', target: p.target_weight_kg ? String(p.target_weight_kg) : '', activity: p.activity_level ?? null,
         goal: p.goal ?? null, diet: p.diet_preference ?? null, region: p.region ?? null, lifeStage: p.life_stage ?? 'none',
-        conditions: me.conditions ?? [], allergies: me.allergies ?? [] };
+        conditions: me.conditions ?? [], allergies: me.allergies ?? [], share: !!p.training_opt_in };
       setF(form); setBase(form); setEmail(me.email ?? '');
       setTargets(await request('GET', '/users/me/targets'));
       setLoaded(true);
@@ -142,7 +142,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
       await api.updateProfile({
         display_name: f.name.trim() || null, age: num(f.age), height_cm: num(f.height), weight_kg: num(f.weight), target_weight_kg: num(f.target),
         sex: f.sex, activity_level: f.activity, goal: f.goal, diet_preference: f.diet, region: f.region, life_stage: f.lifeStage,
-        conditions: f.conditions, allergies: f.allergies });
+        conditions: f.conditions, allergies: f.allergies, training_opt_in: f.share });
       setBase(f); setSaved(true);
       setTargets(await request('GET', '/users/me/targets'));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -261,6 +261,16 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {ALLERGENS.map((a) => <Chip key={a} label={pretty(a)} on={f.allergies.includes(a)} onPress={() => set('allergies', toggle(f.allergies, a))} />)}
             </View>
+          </View>
+        </Section>
+
+        <Section title="Privacy" hint="Your scans are saved to your account so we can show your history and improve accuracy. Delete your account and they go too." delay={330}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontFamily: F.bodyBold, fontSize: 15, color: C.fg }}>Help improve food recognition</Text>
+              <Text style={s.muted}>Also keep the photos you scan, so we can train and test the app on real Indian food. Off by default. Turn it off any time; photos already saved are removed when you delete your account.</Text>
+            </View>
+            <Switch value={f.share} onValueChange={(v) => set('share', v)} trackColor={{ true: C.accent }} thumbColor="#fff" accessibilityLabel="Help improve food recognition" />
           </View>
         </Section>
 

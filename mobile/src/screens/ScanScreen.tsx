@@ -39,6 +39,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [missingCode, setMissingCode] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
   const lock = useRef(false);
   useEffect(() => {
@@ -67,7 +68,9 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
 
   async function scan(code: string) {
     const r = await run(() => api.scanBarcode(code));
-    if (r) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); setResult(r); setTarget({ barcode: r.barcode }); }
+    if (!r) setMissingCode(code);
+    if (r) {
+      setMissingCode(null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); setResult(r); setTarget({ barcode: r.barcode }); }
     lock.current = false;
   }
   async function pick(slug: string) {
@@ -76,7 +79,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   }
   async function analyse(b64: string | null | undefined) {
     if (!b64) { setErr('Could not read that picture. Please try again.'); return; }
-    const r: any = await run(() => api.scanSmart(b64));
+    const r: any = await run(() => api.scanSmart(b64, missingCode ?? undefined));
     if (!r) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (r.kind === 'product') { setResult(r); setTarget({ barcode: r.barcode }); }
@@ -238,7 +241,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
         {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{slow ? 'Still working… the server may be waking up' : 'Analysing…'}</K></View>}
         <ErrorText>{err}</ErrorText>
-        {notFound && <Text style={s.muted}>Tip: point the camera at the ingredient list and tap the button to scan the label instead.</Text>}
+        {notFound && <Text style={s.muted}>Not in any database yet. Point the camera at the NUTRITION TABLE and ingredient list on the pack and tap the button. We'll read it, score it, and remember this barcode for next time.</Text>}
 
         {mode === 'scan' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>

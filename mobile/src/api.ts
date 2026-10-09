@@ -101,7 +101,7 @@ export const api = {
   logPhotoMeal: (prediction_id: number, items: { food_slug: string; grams: number; grams_min: number; grams_max: number }[]) =>
     request('POST', '/meals', { meal_type: 'snack', source: 'photo', items: items.map((i) => ({ ...i, prediction_id })) }),
   // One call for food OR label. Base64 JSON is more reliable than multipart on React Native.
-  scanSmart: (image_base64: string) => request('POST', '/scan/smart', { image_base64 }, 90000),
+  scanSmart: (image_base64: string, barcode?: string) => request('POST', '/scan/smart', { image_base64, barcode }, 90000),
   feedback: (prediction_id: number, prediction_correct: boolean, corrected_items: { food_slug: string; grams?: number }[]) =>
     request('POST', `/predictions/${prediction_id}/feedback`, { prediction_correct, corrected_items }),
   chat: (message: string, session_id?: number) => request('POST', '/chat', { message, session_id }),
