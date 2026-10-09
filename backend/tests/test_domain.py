@@ -234,3 +234,10 @@ def test_allergen_plurals_and_generic_nuts_are_detected():
     assert "egg" in analyze_ingredients("Wheat flour, eggs").allergens
     assert "shellfish" in analyze_ingredients("Prawns, salt").allergens
     assert "tree_nuts" in analyze_ingredients("Mixed nuts, sugar").allergens
+
+
+def test_database_url_gets_driver_prefix():
+    from app.core.config import Settings
+    assert Settings(database_url="postgres://u:p@h/db").database_url == "postgresql+psycopg://u:p@h/db"
+    assert Settings(database_url="postgresql://u:p@h/db").database_url == "postgresql+psycopg://u:p@h/db"
+    assert Settings(database_url="sqlite:///x.db").database_url == "sqlite:///x.db"

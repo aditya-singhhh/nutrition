@@ -6,6 +6,7 @@ import secrets
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60
     seed_on_startup: bool = True
+    # Hosted demo without migrations: create tables and load reference data on boot. Remove once Alembic exists.
+    auto_create_tables: bool = False
     log_level: str = "INFO"
 
     # Provider selection (AI Gateway). Business logic never imports a vendor SDK directly.
@@ -33,6 +36,15 @@ class Settings(BaseSettings):
 
     consent_version: str = "2026-10-v1"
     max_upload_bytes: int = 8 * 1024 * 1024
+
+    @field_validator("database_url")
+    @classmethod
+    def _driver(cls, v: str) -> str:
+        # Hosts hand out postgres:// or postgresql:// URLs; SQLAlchemy needs the psycopg driver named.
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
 
     def resolved_jwt_secret(self) -> str:
         if self.jwt_secret:

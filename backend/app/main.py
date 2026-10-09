@@ -25,8 +25,8 @@ def create_app(settings: Settings | None = None, gateway: AIGateway | None = Non
 
     engine = make_engine(s.database_url)
     factory = make_session_factory(engine)
-    if s.env in ("dev", "test"):
-        Base.metadata.create_all(engine)  # staging/prod must use migrations (Alembic - next step)
+    if s.env in ("dev", "test") or s.auto_create_tables:
+        Base.metadata.create_all(engine)  # real prod should use migrations (Alembic - next step)
         if s.seed_on_startup:
             with factory() as db:
                 seed_all(db)

@@ -1,0 +1,28 @@
+# Render Blueprint: one click deploy of the API + a Postgres database.
+# DEMO GRADE: free tier sleeps after idle time, the free database expires after 30 days,
+# and there is no rate limiting yet. Use fake data only.
+services:
+  - type: web
+    name: health-companion-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install ".[postgres]"
+    startCommand: uvicorn app.main:get_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health/ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: HC_ENV
+        value: staging
+      - key: HC_AUTO_CREATE_TABLES
+        value: "true"
+      - key: HC_JWT_SECRET
+        generateValue: true
+      - key: HC_DATABASE_URL
+        fromDatabase:
+          name: health-companion-db
+          property: connectionString
+databases:
+  - name: health-companion-db
+    plan: free
