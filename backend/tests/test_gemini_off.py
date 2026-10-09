@@ -100,3 +100,13 @@ def test_smart_scan_not_configured(client, auth):
     import base64
     img = base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 200).decode()
     assert client.post("/api/v1/scan/smart", json={"image_base64": img}, headers=auth).status_code == 503
+
+
+def test_product_without_nutrients_is_not_scored():
+    from app.domain.compat import UserContext
+    from app.services.catalog import evaluate_product
+    p = PackagedProduct(barcode="1", brand="B", name="N", category="packaged", nutrients_per_100g={},
+                        ingredients_text="gram flour, oil, salt", allergens=[], additives=[], country="IN",
+                        source="open_food_facts", confidence="crowd_sourced", verified=False)
+    r = evaluate_product(p, UserContext(conditions=[], allergies=[], diet_preference=None, goal=None))
+    assert r["quality_score"]["score"] is None

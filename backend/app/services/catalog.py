@@ -123,6 +123,10 @@ def evaluate_product(prod: PackagedProduct, ctx: UserContext, grams: float | Non
     nova = prod.nova if prod.nova is not None else analysis.estimated_nova
     score = score_food(prod.nutrients_per_100g, category=prod.category, nova=nova, additives=analysis.additives,
                        ingredient_flags=analysis.flags, ingredients_known=known, verified=prod.verified)
+    if not any(v is not None for v in prod.nutrients_per_100g.values()):
+        # Ingredients only: a score from ingredient quality alone would look far more certain than it is.
+        score = {**score, "score": None, "band": None, "confidence": "none",
+                 "summary": "No nutrition values on record for this product, so we can't score it. Scan its nutrition label to add them."}
     compat = evaluate_personal(
         FoodView(prod.name, prod.nutrients_per_100g, allergens=sorted(set(analysis.allergens) | set(prod.allergens)),
                  may_contain=analysis.may_contain), ctx)
