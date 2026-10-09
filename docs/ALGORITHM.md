@@ -228,4 +228,4 @@ If the AI is down or rejected, the user still gets the correct draft.
 3. **Rules for the other conditions** (fatty liver, uric acid, deficiencies), written by a dietitian.
 4. **Check label-table reading accuracy** on real packs (the validation catches inconsistent numbers, but not a confidently wrong, self-consistent reading).
 5. **Accuracy measurement** of food-photo predictions from the saved corrections.
-6. Security hardening: refresh tokens, rate limiting, password reset, proper database migrations.
+6. Security hardening still open: refresh tokens, password reset, proper database migrations, a shared (Redis) rate limiter if more than one server instance runs. Login, chat and scan endpoints already have per-minute limits.
