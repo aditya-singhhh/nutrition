@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -58,6 +58,7 @@ class UserProfile(Base):
     display_name: Mapped[str | None] = mapped_column(String(60))
     target_weight_kg: Mapped[float | None] = mapped_column(Float)
     life_stage: Mapped[str | None] = mapped_column(String(20))  # pregnant | breastfeeding | None
+    training_opt_in: Mapped[bool | None] = mapped_column(Boolean, default=False)  # may we keep scan PHOTOS to improve recognition
     user: Mapped[User] = relationship(back_populates="profile")
 
 
@@ -198,3 +199,20 @@ class ChatMessage(Base):
     safety_level: Mapped[str | None] = mapped_column(String(20))
     prediction_id: Mapped[int | None] = mapped_column(ForeignKey("model_predictions.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ScanRecord(Base):
+    """Every scan, kept so recognition can be improved and audited. The photo itself is stored ONLY if the user opted in."""
+    __tablename__ = "scan_records"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # barcode | food | label | product
+    barcode: Mapped[str | None] = mapped_column(String(14), index=True)
+    model_name: Mapped[str | None] = mapped_column(String(60))
+    prediction_id: Mapped[int | None] = mapped_column(Integer)
+    extracted: Mapped[dict] = mapped_column(JsonType, default=dict)  # what the reader/model produced
+    outcome: Mapped[dict] = mapped_column(JsonType, default=dict)  # what we showed (slugs, score, warnings)
+    image: Mapped[bytes | None] = mapped_column(LargeBinary)  # only with opt-in
+    image_sha256: Mapped[str | None] = mapped_column(String(64))
+    correction: Mapped[dict | None] = mapped_column(JsonType)  # user's fix, when given

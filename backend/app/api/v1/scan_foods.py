@@ -11,14 +11,16 @@ from app.ai.providers import AIGateway, DishCandidate, ProviderError, ProviderNo
 from app.api.deps import current_user, decode_image_b64, get_db, get_gateway, read_image
 from app.core.config import get_settings
 from app.domain.barcode import InvalidBarcode, normalize_barcode
+from app.domain.label import parse_label_nutrition
 from app.domain.compat import FoodView, evaluate_personal
 from app.domain.ingredients import analyze_ingredients
 from app.domain.nutrition import round_nutrients, scale_range
 from app.domain.scoring import score_food
-from app.models import FoodItem, ModelPrediction, User
+from app.models import FoodItem, ModelPrediction, PackagedProduct, User
 from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn, SmartScanIn
 from app.services import catalog, openfoodfacts
 from app.services.audit import audit
+from app.services.scan_log import record_scan
 from app.services.catalog import user_context
 
 logger = logging.getLogger(__name__)
@@ -68,9 +70,17 @@ def get_product(barcode: str, user: User = Depends(current_user), db: Session = 
 
 @router.post("/scan/barcode", tags=["scan"])
 def scan_barcode(body: BarcodeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    prod = _product_or_404(db, _barcode_or_422(body.barcode))
+    code = _barcode_or_422(body.barcode)
+    try:
+        prod = _product_or_404(db, code)
+    except HTTPException:
+        record_scan(db, user, "barcode", barcode=code, outcome={"found": False})  # missing products are the most useful signal
+        raise
     audit(db, user.id, "scan_barcode", "product", prod.id)
-    return catalog.evaluate_product(prod, user_context(user))
+    out = catalog.evaluate_product(prod, user_context(user))
+    record_scan(db, user, "barcode", barcode=code,
+                outcome={"found": True, "source": prod.source, "score": out["quality_score"].get("score")})
+    return out
 
 
 @router.post("/food/analyze", tags=["foods"])
@@ -193,10 +203,19 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
     which is more reliable than multipart from React Native."""
     data = decode_image_b64(body.image_base64, get_settings().max_upload_bytes)
     res = _call_provider(lambda: gw.vision.smart(data, _known_foods(db)))
+    ctx = user_context(user)
     if res.kind == "product":
-        prod = _product_or_404(db, _barcode_or_422(res.barcode))
+        code = _barcode_or_422(res.barcode)
+        try:
+            prod = _product_or_404(db, code)
+        except HTTPException:
+            record_scan(db, user, "product", barcode=code, model=gw.vision.name, image=data, outcome={"found": False})
+            raise
         audit(db, user.id, "scan_barcode", "product", prod.id)
-        return {**catalog.evaluate_product(prod, user_context(user)), "kind": "product"}
+        out = {**catalog.evaluate_product(prod, ctx), "kind": "product"}
+        record_scan(db, user, "product", barcode=code, model=gw.vision.name, image=data,
+                    outcome={"found": True, "source": prod.source, "score": out["quality_score"].get("score")})
+        return out
     if res.kind == "food":
         dishes, names = list(res.dishes), []
         have = {d.food_slug for d in dishes}
@@ -207,17 +226,53 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
                 have.add(hit.slug)
             elif hit is None:
                 names.append(g.name)
-        return _food_response(db, user, gw, data, dishes, names)
+        out = _food_response(db, user, gw, data, dishes, names)
+        record_scan(db, user, "food", model=gw.vision.name, image=data, prediction_id=out["prediction_id"],
+                    extracted={"dishes": [d.food_slug for d in dishes], "unmatched": names},
+                    outcome={"items": [i["food"]["slug"] for i in out["items"]]})
+        return out
     if res.kind == "label":
-        out = analyze_label_text(res.label_text, user, None)
+        ln = parse_label_nutrition(res.label_nutrition)
+        per100 = ln.per_100g or None
+        out = analyze_label_text(res.label_text, user, per100)
+        if per100:
+            out["data_quality"] = {"source": "label_scan", "confidence": "ai_read_label", "verified": False,
+                                   "warning": "Read from your photo by AI and not verified. Check the numbers against the pack."}
+            out["nutrition_per_100g"] = per100
+            if ln.serving_g and ln.per_serving:
+                out["portion"] = {"grams": ln.serving_g, "label": "1 serving"}
+                out["nutrition_for_portion"] = ln.per_serving
+        out["name"] = res.product_name or "Scanned label"
         pred = ModelPrediction(user_id=user.id, kind="label_ocr", model_name=gw.vision.name, model_version=gw.vision.version,
                                confidence=None, input_type="image", input_digest=hashlib.sha256(data).hexdigest(),
-                               output={"chars": len(res.label_text)})
+                               output={"chars": len(res.label_text), "basis": ln.basis})
         db.add(pred)
         db.commit()
         out.update({"kind": "label", "prediction_id": pred.id, "extracted_text": res.label_text,
-                    "note": "Please check the text we read against the pack."})
+                    "label_nutrition": ln.to_dict(), "label_warnings": ln.warnings,
+                    "note": "Please check what we read against the pack."})
+        code = None
+        try:
+            code = normalize_barcode(body.barcode) if body.barcode else None
+        except InvalidBarcode:
+            code = None
+        prod = None
+        if code and per100 and "energy_kcal" in per100 and catalog.get_product(db, code) is None:
+            prod = PackagedProduct(  # remember it so the next person who scans this barcode gets an answer
+                barcode=code, brand="Unknown", name=(res.product_name or "Scanned product")[:160], category="packaged",
+                serving_g=ln.serving_g, nutrients_per_100g=per100, ingredients_text=res.label_text or None, allergens=[],
+                additives=[], nova=None, country="IN", source="user_label_scan", confidence="ai_read_label", verified=False)
+            db.add(prod)
+            db.commit()
+            out = {**catalog.evaluate_product(prod, ctx), "kind": "product", "created_from_label": True,
+                   "extracted_text": res.label_text, "label_nutrition": ln.to_dict(), "label_warnings": ln.warnings,
+                   "prediction_id": pred.id}
+        record_scan(db, user, "label", barcode=code, model=gw.vision.name, image=data, prediction_id=pred.id,
+                    extracted={"text": res.label_text, "nutrition": res.label_nutrition, "parsed": ln.to_dict()},
+                    outcome={"score": out["quality_score"].get("score"), "warnings": ln.warnings,
+                             "saved_as_product": prod is not None})
         return out
+    record_scan(db, user, "none", model=gw.vision.name, image=data, outcome={"recognised": False})
     raise HTTPException(422, {"code": "nothing_recognised",
                               "message": "We couldn't recognise this picture. Food photos, ingredient labels and barcode numbers work best, in good light."})
 

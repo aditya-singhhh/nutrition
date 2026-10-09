@@ -46,6 +46,7 @@ class ProfileIn(BaseModel):
     display_name: str | None = Field(default=None, max_length=60)
     target_weight_kg: float | None = Field(default=None, ge=10, le=400)
     life_stage: Literal["pregnant", "breastfeeding", "none"] | None = None
+    training_opt_in: bool | None = None
     conditions: list[str] | None = None
     allergies: list[str] | None = None
 
@@ -88,6 +89,7 @@ class BarcodeIn(BaseModel):
 
 class SmartScanIn(BaseModel):
     image_base64: str = Field(min_length=100, max_length=14_000_000)
+    barcode: str | None = Field(default=None, max_length=20)  # set when a barcode was not found and the user scans the label instead
 
 
 class LabelTextIn(BaseModel):

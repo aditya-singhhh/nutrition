@@ -124,6 +124,8 @@ class SmartScan:
     dishes: list = field(default_factory=list)  # list[DishCandidate] when kind == food
     unmatched: list = field(default_factory=list)  # list[DishGuess]
     label_text: str = ""  # when kind == label
+    label_nutrition: dict | None = None  # raw table read off the pack (unvalidated)
+    product_name: str = ""
     barcode: str = ""  # digits read from a visible barcode number, when kind == product
 
 
@@ -355,11 +357,15 @@ class GeminiVisionProvider:
             "matches one of these ids, its \"slug\":\n"
             f"{menu}\n"
             '- A packaged product whose barcode NUMBER is readable: kind "product" and put the digits in "barcode".\n'
-            '- The printed ingredients/nutrition text of a packaged product: kind "label", transcribe the ingredient list and '
-            'additive codes exactly as printed into "label_text".\n'
+            '- The printed ingredients and/or nutrition table of a packaged product: kind "label". Put the ingredient list and '
+            'additive codes exactly as printed into "label_text", the product name if visible into "product_name", and read the '
+            'NUTRITION TABLE exactly as printed into "nutrition": {"serving_g": grams per serving or null, "per_100g": {...}, '
+            '"per_serving": {...}} using keys energy_kcal, protein_g, carbs_g, sugar_g, fat_g, sat_fat_g, fiber_g, sodium_mg '
+            '(or salt_g if only salt is printed). Use null for anything not printed. Convert kJ to kcal only if kcal is absent. '
+            'Copy numbers exactly; never estimate or fill in missing ones.\n'
             '- Otherwise kind "none".\n'
             'Return JSON: {"kind":"food|product|label|none","items":[{"name":"...","slug":"<id or empty>","confidence":0..1,'
-            '"grams_min":number,"grams_max":number}],"barcode":"","label_text":""}. For food give a realistic edible-weight '
+            '"grams_min":number,"grams_max":number}],"barcode":"","label_text":"","product_name":"","nutrition":null}. For food give a realistic edible-weight '
             "range in grams for the portion shown. Never return calories or other nutrition values."
         )
         raw = self._c.generate(prompt, image, json_out=True)
@@ -371,8 +377,10 @@ class GeminiVisionProvider:
         digits = re.sub(r"\D", "", str(data.get("barcode", "")))
         if 8 <= len(digits) <= 14:
             return SmartScan("product", barcode=digits)
-        if kind == "label" and str(data.get("label_text", "")).strip():
-            return SmartScan("label", label_text=str(data["label_text"]).strip())
+        nutrition = data.get("nutrition") if isinstance(data.get("nutrition"), dict) else None
+        if kind == "label" and (str(data.get("label_text", "")).strip() or nutrition):
+            return SmartScan("label", label_text=str(data.get("label_text", "")).strip(), label_nutrition=nutrition,
+                             product_name=str(data.get("product_name") or "").strip()[:160])
         if kind == "food":
             dishes, unmatched = [], []
             for it in data.get("items", []) if isinstance(data.get("items"), list) else []:

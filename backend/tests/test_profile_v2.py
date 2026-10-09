@@ -13,7 +13,7 @@ def test_ensure_columns_adds_to_old_table():
     e = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     with e.begin() as c:
         c.execute(text("CREATE TABLE user_profiles (id INTEGER PRIMARY KEY, user_id INTEGER)"))
-    assert set(ensure_columns(e)) == {"user_profiles.display_name", "user_profiles.target_weight_kg", "user_profiles.life_stage"}
+    assert set(ensure_columns(e)) == {"user_profiles.display_name", "user_profiles.target_weight_kg", "user_profiles.life_stage", "user_profiles.training_opt_in"}
     assert {c["name"] for c in inspect(e).get_columns("user_profiles")} >= {"display_name", "life_stage"}
     assert ensure_columns(e) == []  # idempotent
 

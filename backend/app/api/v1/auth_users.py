@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import current_user, get_db
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Allergy, ModelPrediction, PredictionFeedback, User, UserCondition, UserProfile
+from app.models import Allergy, ModelPrediction, PredictionFeedback, ScanRecord, User, UserCondition, UserProfile
 from app.schemas import LoginIn, ProfileIn, RegisterIn
 from app.services.audit import audit
 from app.services.dashboard import targets_for
@@ -27,7 +27,7 @@ def _user_payload(u: User) -> dict:
             "age": p.age, "sex": p.sex, "height_cm": p.height_cm, "weight_kg": p.weight_kg,
             "activity_level": p.activity_level, "goal": p.goal, "diet_preference": p.diet_preference,
             "region": p.region, "display_name": p.display_name, "target_weight_kg": p.target_weight_kg,
-            "life_stage": p.life_stage, "country": p.country, "locale": p.locale, "timezone": p.timezone},
+            "life_stage": p.life_stage, "training_opt_in": bool(p.training_opt_in), "country": p.country, "locale": p.locale, "timezone": p.timezone},
         "conditions": sorted(c.condition for c in u.conditions),
         "allergies": sorted(a.allergen for a in u.allergies),
     }
@@ -91,6 +91,7 @@ def delete_account(user: User = Depends(current_user), db: Session = Depends(get
     """Right-to-erasure: removes the account, profile, meals, chats, predictions and feedback."""
     uid = user.id
     pred_ids = list(db.scalars(select(ModelPrediction.id).where(ModelPrediction.user_id == uid)))
+    db.execute(delete(ScanRecord).where(ScanRecord.user_id == uid))  # includes any stored photos
     db.delete(user)  # ORM cascades: profile, conditions, allergies, meals(+items), chat sessions(+messages)
     db.flush()
     if pred_ids:
