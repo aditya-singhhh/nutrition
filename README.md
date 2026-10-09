@@ -52,3 +52,8 @@ The app allows plain HTTP for development; **use HTTPS before release**.
 Build the APK in the cloud: push to GitHub, and the `android-apk` workflow publishes `health-companion.apk` under the repo's Releases.
 Locally (needs Android SDK + JDK 17): `cd mobile && npm ci && npx expo prebuild --platform android && cd android && ./gradlew assembleRelease`.
 Not yet built or run on a device by me.
+
+## Scanning (v0.2)
+- **Barcode:** local products first, then Open Food Facts (crowd-sourced, always shown as unverified).
+- **Food photo / label:** set `HC_GEMINI_API_KEY` on the server (never in the app or repo). Gemini only names dishes
+  from our food list and reads label text; all nutrition numbers come from our own tables. Optional: `HC_GEMINI_MODEL`.

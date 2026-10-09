@@ -38,15 +38,16 @@ export async function setToken(t: string | null): Promise<void> {
   else await SecureStore.deleteItemAsync('hc_token');
 }
 
-export async function request<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+export async function request<T = any>(method: string, path: string, body?: unknown | FormData): Promise<T> {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers: Record<string, string> = isForm ? {} : { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/api/v1${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, `Cannot reach the server at ${baseUrl}. Check the server address and your connection.`);
@@ -81,5 +82,17 @@ export const api = {
   analyzeFood: (food_slug: string) => request('POST', '/food/analyze', { food_slug, servings: 1 }),
   logMeal: (item: { food_slug?: string; barcode?: string }) =>
     request('POST', '/meals', { meal_type: 'snack', items: [{ ...item, servings: 1 }] }),
+  logPhotoMeal: (prediction_id: number, items: { food_slug: string; grams: number; grams_min: number; grams_max: number }[]) =>
+    request('POST', '/meals', { meal_type: 'snack', source: 'photo', items: items.map((i) => ({ ...i, prediction_id })) }),
+  scanFoodPhoto: (uri: string) => request('POST', '/scan/food-photo', photoForm(uri)),
+  scanLabel: (uri: string) => request('POST', '/scan/label', photoForm(uri)),
+  feedback: (prediction_id: number, prediction_correct: boolean, corrected_items: { food_slug: string; grams?: number }[]) =>
+    request('POST', `/predictions/${prediction_id}/feedback`, { prediction_correct, corrected_items }),
   chat: (message: string, session_id?: number) => request('POST', '/chat', { message, session_id }),
 };
+
+function photoForm(uri: string): FormData {
+  const f = new FormData();
+  f.append('image', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+  return f;
+}

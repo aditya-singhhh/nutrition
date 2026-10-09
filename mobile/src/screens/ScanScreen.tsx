@@ -1,116 +1,268 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
+import { FadeIn, Laser, Press, Pulse, SheetIn } from '../anim';
 import { api } from '../api';
 import ResultView from '../components/ResultView';
-import { Button, Card, Chip, ErrorText, Field, s } from '../components/ui';
-import { C } from '../theme';
+import Screen from '../components/Screen';
+import { Button, Card, Display, ErrorText, Field, K, Segmented, Tag, s } from '../components/ui';
+import { C, F } from '../theme';
 
-type Mode = 'barcode' | 'search';
+type Mode = 'barcode' | 'photo' | 'label' | 'search';
 type Target = { food_slug?: string; barcode?: string };
+type PhotoItem = { slug: string; name: string; conf: number; sure: boolean; lo: number; hi: number; kcal: [number, number]; size: 0 | 1 | 2; on: boolean };
+const MODES = [{ key: 'barcode', label: 'Barcode' }, { key: 'photo', label: 'Photo' }, { key: 'label', label: 'Label' }, { key: 'search', label: 'Search' }];
+const gramsFor = (i: PhotoItem) => [i.lo, (i.lo + i.hi) / 2, i.hi][i.size];
+const kcalFor = (i: PhotoItem) => [i.kcal[0], (i.kcal[0] + i.kcal[1]) / 2, i.kcal[1]][i.size];
 
-export default function ScanScreen({ onLogged }: { onLogged: () => void }) {
+const Corner = ({ style }: { style: any }) => <View style={[{ position: 'absolute', width: 32, height: 32, borderColor: C.gold }, style]} />;
+const IconBtn = ({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) => (
+  <Press accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+    style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(10,18,14,.55)', alignItems: 'center', justifyContent: 'center' }}>{children}</Press>
+);
+
+export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void; onClose: () => void }) {
+  const { top, bottom } = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('barcode');
   const [perm, askPerm] = useCameraPermissions();
+  const [torch, setTorch] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [target, setTarget] = useState<Target | null>(null);
+  const [photo, setPhoto] = useState<{ id: number; items: PhotoItem[]; unrecognised: string[] } | null>(null);
   const [manual, setManual] = useState('');
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const lock = useRef(false);
+  const cam = useRef<CameraView>(null);
+
+  const inResult = !!result || !!photo;
+  const reset = () => { setResult(null); setTarget(null); setPhoto(null); setMsg(null); setErr(null); setNotFound(false); lock.current = false; };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (inResult) { reset(); return true; } return false; });
+    return () => sub.remove();
+  }, [inResult]);
 
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
-    setBusy(true);
-    setErr(null);
-    setMsg(null);
+    setBusy(true); setErr(null); setMsg(null); setNotFound(false);
     try { return await fn(); } catch (e: any) {
       const d = e.detail;
-      setErr(d && typeof d === 'object' && 'message' in d ? (d as any).message : e.message);
+      if (d && typeof d === 'object' && d.code === 'product_not_found') setNotFound(true);
+      setErr(d && typeof d === 'object' && 'message' in d ? d.message : e.message);
     } finally { setBusy(false); }
   }
 
   async function scan(code: string) {
     const r = await run(() => api.scanBarcode(code));
-    if (r) { setResult(r); setTarget({ barcode: r.barcode }); }
+    if (r) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); setResult(r); setTarget({ barcode: r.barcode }); }
     lock.current = false;
   }
-
   async function pick(slug: string) {
     const r = await run(() => api.analyzeFood(slug));
     if (r) { setResult(r); setTarget({ food_slug: slug }); }
   }
-
+  async function snap() {
+    if (!cam.current || busy) return;
+    const kind = mode;
+    const pic = await run(async () => cam.current!.takePictureAsync({ quality: 0.5, skipProcessing: true }));
+    if (!pic) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    if (kind === 'label') {
+      const r = await run(() => api.scanLabel(pic.uri));
+      if (r) setResult({ ...r, name: 'Scanned label' });
+    } else {
+      const r: any = await run(() => api.scanFoodPhoto(pic.uri));
+      if (r) setPhoto({
+        id: r.prediction_id, unrecognised: r.unrecognised ?? [],
+        items: r.items.map((i: any): PhotoItem => ({
+          slug: i.food.slug, name: i.food.name, conf: i.confidence, sure: !i.needs_confirmation, on: true, size: 1,
+          lo: i.portion_g_range[0], hi: i.portion_g_range[1], kcal: [i.nutrition_range.min.energy_kcal ?? 0, i.nutrition_range.max.energy_kcal ?? 0]})),
+      });
+    }
+  }
   async function log() {
     if (!target) return;
-    const ok = await run(() => api.logMeal(target));
-    if (ok) { setMsg('Logged to today.'); onLogged(); }
+    if (await run(() => api.logMeal(target))) { setMsg('Logged to today.'); onLogged(); }
   }
+  async function logPhoto() {
+    if (!photo) return;
+    const chosen = photo.items.filter((i) => i.on);
+    if (!chosen.length) return;
+    const ok = await run(() => api.logPhotoMeal(photo.id, chosen.map((i) => ({ food_slug: i.slug, grams: Math.round(gramsFor(i)), grams_min: i.lo, grams_max: i.hi }))));
+    if (ok) {
+      api.feedback(photo.id, chosen.length === photo.items.length, chosen.map((i) => ({ food_slug: i.slug, grams: Math.round(gramsFor(i)) }))).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setMsg('Logged to today.'); onLogged();
+    }
+  }
+  const setItem = (slug: string, patch: Partial<PhotoItem>) => setPhoto((p) => p && { ...p, items: p.items.map((i) => (i.slug === slug ? { ...i, ...patch } : i)) });
 
+  /* ---------------------------------------------------------------- results */
   if (result) {
     return (
-      <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, gap: 12, paddingTop: 48 }}>
-        <ResultView r={result} />
-        {msg && <Text style={{ color: C.ok, fontWeight: '600' }}>{msg}</Text>}
-        <ErrorText>{err}</ErrorText>
-        <Button title="Log 1 serving" onPress={log} busy={busy} />
-        <Button kind="ghost" title="Scan something else" onPress={() => { setResult(null); setTarget(null); setMsg(null); }} />
-      </ScrollView>
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Screen>
+          <Press accessibilityRole="button" accessibilityLabel="Back to scanner" onPress={reset} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40 }}>
+            <Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" stroke={C.fg} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+            <K color={C.fg}>Scan again</K>
+          </Press>
+          <ResultView r={result} />
+          {result.extracted_text ? <Card><K>What we read from the label</K><Text style={s.muted}>{result.extracted_text}</Text></Card> : null}
+          {msg && <Text style={{ color: C.accent, fontFamily: F.bodyBold }}>{msg}</Text>}
+          <ErrorText>{err}</ErrorText>
+        </Screen>
+        {target && <View style={{ padding: 16, paddingBottom: 16, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line }}>
+          <Button title={result.nutrition_for_portion ? `Log 1 serving · ${Math.round(result.nutrition_for_portion.energy_kcal ?? 0)} kcal` : 'Log 1 serving'} onPress={log} busy={busy} />
+        </View>}
+      </View>
+    );
+  }
+  if (photo) {
+    const chosen = photo.items.filter((i) => i.on);
+    const total = chosen.reduce((a, i) => a + kcalFor(i), 0);
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Screen>
+          <Press accessibilityRole="button" accessibilityLabel="Back to scanner" onPress={reset} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40 }}>
+            <Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" stroke={C.fg} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+            <K color={C.fg}>Retake</K>
+          </Press>
+          <FadeIn><Display size={40}>{photo.items.length ? `We found ${photo.items.length} item${photo.items.length > 1 ? 's' : ''}` : 'No known dish found'}</Display></FadeIn>
+          <Text style={s.muted}>Portions are estimates, not exact weights. Check and correct before logging.</Text>
+          {photo.items.map((i, n) => (
+            <FadeIn key={i.slug} delay={n * 90}>
+              <Card style={{ opacity: i.on ? 1 : 0.5, borderWidth: i.sure ? 0 : 2, borderColor: C.gold }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={{ flex: 1, fontFamily: F.bodyBold, fontSize: 18, color: C.fg }}>{i.name}</Text>
+                  <Tag tone={i.sure ? 'ok' : 'warn'} label={i.sure ? `${Math.round(i.conf * 100)}% sure` : 'Not sure · confirm'} />
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ gap: 4 }}>
+                    <K>Portion</K>
+                    <Text style={{ fontFamily: F.display, fontSize: 28, color: C.fg }}>{Math.round(i.lo)}–{Math.round(i.hi)} G</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {(['S', 'M', 'L'] as const).map((l, k) => (
+                      <Press key={l} accessibilityRole="button" accessibilityLabel={`Size ${l}`} accessibilityState={{ selected: i.size === k }} onPress={() => setItem(i.slug, { size: k as 0 | 1 | 2 })}
+                        style={{ width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: i.size === k ? C.ink : C.bg }}>
+                        <K size={13} color={i.size === k ? '#fff' : C.fg}>{l}</K>
+                      </Press>
+                    ))}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderColor: C.line, paddingTop: 10 }}>
+                  <Text style={s.muted}>≈ <Text style={{ fontFamily: F.bodyBold, color: C.fg }}>{Math.round(kcalFor(i))} kcal</Text></Text>
+                  <Press accessibilityRole="button" onPress={() => setItem(i.slug, { on: !i.on })}><K color={i.on ? C.bad : C.accent}>{i.on ? 'Remove' : 'Add back'}</K></Press>
+                </View>
+              </Card>
+            </FadeIn>
+          ))}
+          {photo.unrecognised.length > 0 && <Card tone="warn"><Text style={s.body}>We couldn't match some items to our food list, so no numbers are shown for them. Try Search to add them.</Text></Card>}
+          {msg && <Text style={{ color: C.accent, fontFamily: F.bodyBold }}>{msg}</Text>}
+          <ErrorText>{err}</ErrorText>
+        </Screen>
+        <View style={{ padding: 16, gap: 10, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <K>Estimated total</K>
+            <Text style={{ fontFamily: F.display, fontSize: 28, color: C.fg }}>{Math.round(total)} <Text style={{ fontSize: 13, color: C.muted }}>KCAL</Text></Text>
+          </View>
+          <Button title="Log this meal" onPress={logPhoto} busy={busy} disabled={!chosen.length || !!msg} />
+        </View>
+      </View>
     );
   }
 
+  /* ---------------------------------------------------------------- camera / search */
+  const camMode = mode !== 'search';
+  const camOk = camMode && perm?.granted;
+  const bsPad = Math.max(bottom, 12) + 16;
   return (
-    <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, gap: 12, paddingTop: 48 }}
-      keyboardShouldPersistTaps="handled">
-      <Text style={s.h1}>Scan</Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Chip label="Barcode" on={mode === 'barcode'} onPress={() => setMode('barcode')} />
-        <Chip label="Search dishes" on={mode === 'search'} onPress={() => setMode('search')} />
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: '#0A120E' }}>
+      {camOk && (
+        <CameraView ref={cam} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} enableTorch={torch} facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
+          onBarcodeScanned={mode === 'barcode' ? ({ data }) => { if (lock.current) return; lock.current = true; scan(data); } : undefined} />
+      )}
+      <View style={{ paddingTop: top + 8, paddingHorizontal: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <IconBtn label="Close scanner" onPress={onClose}><Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke="#fff" strokeWidth={2} strokeLinecap="round" /></Svg></IconBtn>
+        {camOk ? <IconBtn label="Torch" onPress={() => setTorch(!torch)}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M13 2L4 14h7l-1 8 9-12h-7z" stroke={torch ? C.gold : '#fff'} fill={torch ? C.gold : 'none'} strokeWidth={2} strokeLinejoin="round" /></Svg></IconBtn> : <View />}
       </View>
-      <ErrorText>{err}</ErrorText>
+      <View style={{ paddingHorizontal: 20, paddingTop: 12 }}><Segmented dark options={MODES} value={mode} onChange={(k) => { setMode(k as Mode); setErr(null); setNotFound(false); lock.current = false; }} /></View>
 
-      {mode === 'barcode' && (
-        <>
-          {!perm ? null : !perm.granted ? (
-            <Card>
-              <Text style={s.body}>Camera access is needed to scan barcodes. You can also type the number below.</Text>
-              <Button title="Allow camera" onPress={askPerm} />
-            </Card>
-          ) : (
-            <View style={{ height: 260, borderRadius: 12, overflow: 'hidden' }}>
-              <CameraView
-                style={{ flex: 1 }}
-                barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a'] }}
-                onBarcodeScanned={({ data }) => {
-                  if (lock.current) return;
-                  lock.current = true;
-                  scan(data);
-                }}
-              />
+      {camMode && !perm?.granted && (
+        <View style={{ flex: 1, padding: 24, justifyContent: 'center', gap: 16 }}>
+          <Display size={34} color="#fff">Camera needed</Display>
+          <Text style={{ fontFamily: F.body, fontSize: 15, color: C.onInk }}>Allow the camera to scan barcodes, plates and labels. Barcodes can also be typed below.</Text>
+          <Button title="Allow camera" onPress={askPerm} />
+        </View>
+      )}
+      {camOk && (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }} pointerEvents="none">
+          <Pulse style={{ width: mode === 'photo' ? 300 : 300, height: mode === 'barcode' ? 190 : 280 }}>
+            <Corner style={{ left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 14 }} />
+            <Corner style={{ right: 0, top: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: 14 }} />
+            <Corner style={{ left: 0, bottom: 0, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: 14 }} />
+            <Corner style={{ right: 0, bottom: 0, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: 14 }} />
+            {mode === 'barcode' && <Laser height={190} color={C.gold} />}
+          </Pulse>
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6 }}>
+              {mode === 'barcode' ? 'Align the barcode inside the frame' : mode === 'photo' ? 'Frame your plate, then tap the button' : 'Frame the ingredient list, then tap the button'}
+            </K>
+            {mode === 'barcode' && <K color={C.onInk} size={10}>EAN-13 · EAN-8 · UPC-A</K>}
+          </View>
+        </View>
+      )}
+      {!camOk && !camMode && <View style={{ flex: 1 }} />}
+
+      <SheetIn key={mode} style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: bsPad, gap: 14, maxHeight: '62%' }}>
+        <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
+        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{mode === 'photo' ? 'Recognising your food…' : mode === 'label' ? 'Reading the label…' : 'Working…'}</K></View>}
+        <ErrorText>{err}</ErrorText>
+        {notFound && <Button kind="tonal" title="Scan its label instead" onPress={() => { setMode('label'); setNotFound(false); setErr(null); }} />}
+
+        {mode === 'barcode' && (
+          <>
+            <K>No camera? Type the number</K>
+            <Field label="Barcode number" value={manual} onChangeText={setManual} keyboardType="number-pad" mono />
+            <Button title="Look up" onPress={() => scan(manual)} busy={busy} disabled={manual.length < 8} />
+          </>
+        )}
+        {(mode === 'photo' || mode === 'label') && (
+          camOk ? (
+            <View style={{ alignItems: 'center', gap: 8 }}>
+              <Press accessibilityRole="button" accessibilityLabel={mode === 'photo' ? 'Take photo of food' : 'Take photo of label'} disabled={busy} onPress={snap}
+                style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.accent }} />
+              </Press>
+              <Text style={[s.muted, { textAlign: 'center' }]}>
+                {mode === 'photo' ? 'Portions are estimates. You can correct everything before logging.' : 'We read the ingredient list and score it. Please check the text we read.'}
+              </Text>
             </View>
-          )}
-          <Field label="Or type the barcode number" value={manual} onChangeText={setManual} keyboardType="number-pad" />
-          <Button title="Look up" onPress={() => scan(manual)} busy={busy} disabled={manual.length < 8} />
-        </>
-      )}
-
-      {mode === 'search' && (
-        <>
-          <Field label="Dish name (e.g. masala dosa, dal, poha)" value={query} onChangeText={setQuery} autoCapitalize="none" />
-          <Button title="Search" busy={busy} disabled={!query.trim()}
-            onPress={async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); }} />
-          {hits.map((h) => (
-            <Card key={h.slug}>
-              <Text style={s.h2}>{h.name}</Text>
-              <Text style={s.muted}>{h.region} · {h.serving.label}</Text>
-              <Button kind="ghost" title="See details" onPress={() => pick(h.slug)} />
-            </Card>
-          ))}
-        </>
-      )}
-      <Text style={s.muted}>Food-photo and label scanning are not enabled yet.</Text>
-    </ScrollView>
+          ) : <Text style={s.muted}>Allow the camera above to use this mode.</Text>
+        )}
+        {mode === 'search' && (
+          <>
+            <Field label="Dish name (masala dosa, dal, poha)" value={query} onChangeText={setQuery} autoCapitalize="none"
+              onSubmitEditing={async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); }} returnKeyType="search" />
+            <Button title="Search" busy={busy} disabled={!query.trim()} onPress={async () => { const r = await run(() => api.searchFoods(query.trim())); if (r) setHits(r.items); }} />
+            {hits.map((h, i) => (
+              <FadeIn key={h.slug} delay={i * 40}>
+                <Press accessibilityRole="button" onPress={() => pick(h.slug)} style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ flex: 1 }}><Text style={{ fontFamily: F.bodyBold, fontSize: 16, color: C.fg }}>{h.name}</Text><Text style={s.muted}>{h.region} · {h.serving.label}</Text></View>
+                  <K color={C.accent}>Details</K>
+                </Press>
+              </FadeIn>
+            ))}
+          </>
+        )}
+      </SheetIn>
+    </KeyboardAvoidingView>
   );
 }

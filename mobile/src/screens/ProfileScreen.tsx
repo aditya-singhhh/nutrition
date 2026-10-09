@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { FadeIn } from '../anim';
 import { api, getBaseUrl, request, setToken } from '../api';
-import { Button, Card, Chip, ErrorText, Field, s } from '../components/ui';
-import { C } from '../theme';
+import Screen from '../components/Screen';
+import { Button, Card, Chip, Display, ErrorText, Field, K, s } from '../components/ui';
+import { C, F } from '../theme';
 
 const SEX = ['male', 'female', 'other'];
 const ACTIVITY = ['sedentary', 'light', 'moderate', 'active'];
@@ -61,7 +63,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
 
   const group = (label: string, opts: string[], val: string | null, set: (v: string) => void) => (
     <View style={{ gap: 6 }}>
-      <Text style={s.label}>{label}</Text>
+      <K>{label}</K>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {opts.map((o) => <Chip key={o} label={pretty(o)} on={val === o} onPress={() => set(o)} />)}
       </View>
@@ -69,9 +71,8 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
   );
 
   return (
-    <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 16, gap: 14, paddingTop: 48 }}
-      keyboardShouldPersistTaps="handled">
-      <Text style={s.h1}>Profile</Text>
+    <Screen>
+      <FadeIn><Display size={52}>Profile</Display></FadeIn>
       <ErrorText>{err}</ErrorText>
       <Field label="Age" value={age} onChangeText={setAge} keyboardType="number-pad" />
       <Field label="Height (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" />
@@ -81,7 +82,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
       {group('Goal', GOAL, goal, setGoal)}
       {group('Diet', DIET, diet, setDiet)}
       <View style={{ gap: 6 }}>
-        <Text style={s.label}>Health conditions</Text>
+        <K>Health conditions</K>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {CONDITIONS.map((c) => <Chip key={c} label={pretty(c)} on={conditions.includes(c)} onPress={() => setConditions(toggle(conditions, c))} />)}
         </View>
@@ -90,28 +91,29 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         )}
       </View>
       <View style={{ gap: 6 }}>
-        <Text style={s.label}>Allergies</Text>
+        <K>Allergies</K>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {ALLERGENS.map((a) => <Chip key={a} label={pretty(a)} on={allergies.includes(a)} onPress={() => setAllergies(toggle(allergies, a))} />)}
         </View>
       </View>
-      {msg && <Text style={{ color: C.ok, fontWeight: '600' }}>{msg}</Text>}
+      {msg && <Text style={{ color: C.accent, fontFamily: F.bodyBold }}>{msg}</Text>}
       <Button title="Save profile" onPress={save} busy={busy} />
 
       {targets?.available && (
-        <Card>
-          <Text style={s.h2}>Your daily targets</Text>
-          <Text style={s.body}>{targets.energy_kcal} kcal · {targets.protein_g} g protein · {targets.fiber_g} g fibre</Text>
-          <Text style={s.muted}>Limits: sugar {targets.sugar_g_max} g, sodium {targets.sodium_mg_max} mg. Starting estimates, not a prescription.</Text>
-          {targets.safety_floor_applied && <Text style={s.muted}>A minimum safe calorie level was applied.</Text>}
-        </Card>
+        <FadeIn><Card tone="ink">
+          <K color={C.onInk}>Your daily targets</K>
+          <Text style={{ fontFamily: F.display, fontSize: 48, color: '#fff' }}>{Number(targets.energy_kcal).toLocaleString('en-IN')} <Text style={{ fontSize: 16, color: C.onInk }}>KCAL</Text></Text>
+          <Text style={[s.body, { color: '#fff' }]}>{targets.protein_g} g protein · {targets.fiber_g} g fibre</Text>
+          <Text style={[s.muted, { color: C.onInk }]}>Limits: sugar {targets.sugar_g_max} g, sodium {targets.sodium_mg_max} mg. Starting estimates, not a prescription.</Text>
+          {targets.safety_floor_applied && <Text style={[s.muted, { color: C.onInk }]}>A minimum safe calorie level was applied.</Text>}
+        </Card></FadeIn>
       )}
       {targets && !targets.available && targets.reason === 'paediatric_review_required' && (
         <Card tone="warn"><Text style={s.body}>{targets.message}</Text></Card>
       )}
 
-      <Text style={s.muted}>Server: {getBaseUrl()}</Text>
-      <Button kind="ghost" title="Log out" onPress={async () => { await setToken(null); onLogout(); }} />
-    </ScrollView>
+      <Text style={[s.muted, { fontFamily: F.mono, fontSize: 12 }]}>Server: {getBaseUrl()}</Text>
+      <Button kind="tonal" title="Log out" onPress={async () => { await setToken(null); onLogout(); }} />
+    </Screen>
   );
 }
