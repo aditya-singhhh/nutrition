@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, View } from 'react-native';
+import { LangProvider } from './src/i18n';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { FadeIn } from './src/anim';
 import { loadSession, setOnSessionExpired } from './src/api';
@@ -51,5 +52,5 @@ export default function App() {
       <TabBar tab={tab} onChange={setTab} />
     </View>
   );
-  return <SafeAreaProvider>{body}</SafeAreaProvider>;
+  return <SafeAreaProvider><LangProvider>{body}</LangProvider></SafeAreaProvider>;
 }

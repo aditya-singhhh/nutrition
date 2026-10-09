@@ -61,6 +61,10 @@ A packaged product is never scored from what "ghee in general" looks like. Its s
 ### 1.5 Per-serving impact ("daily share")
 Every result with a portion shows what one serving uses of the daily limit: energy, saturated fat, sugar, sodium, as a percentage of the user's own targets, or of a 2000 kcal reference day (saturated fat 22 g, sugar 50 g, sodium 2000 mg) when no profile exists. Example: a 15 g ghee serving carries about 11 g saturated fat, about 50% of the reference limit.
 
+### 1.6 Verdict and trust
+- **Verdict** (`services/verdict.py`): band + the portion's share of daily limits. excellent → everyday; good → fine; moderate/limit → sometimes/rarely, but "fine in small amounts" if the portion uses 15% or less of every daily limit. A share of 40% or more of one limit is called out. A personal score below 50 can only make the verdict stricter. An allergen match gives "avoid". No score gives "can't judge yet".
+- **Trust** (`catalog.trust_level`): verified > community_confirmed (label scans from 2 other users agree within 10% on 3+ nutrients) > from_scan > community (Open Food Facts). A disagreeing scan changes nothing and stays in the scan log for review.
+
 ### 1.2 Portion arithmetic (food photo)
 
 For each dish: `nutrients = per_100g × grams / 100`, computed for the low and high end of Gemini's gram range. The S / M / L buttons pick low / midpoint / high. The total shown is the sum of the chosen items. Everything is labelled **an estimate**, and dishes under 50% confidence are marked *Not sure, confirm*. The user's corrections are saved against the prediction so accuracy can be measured later.

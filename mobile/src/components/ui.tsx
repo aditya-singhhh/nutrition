@@ -2,17 +2,18 @@ import * as Haptics from 'expo-haptics';
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle, StyleProp } from 'react-native';
 import { FillBar, Press, dur } from '../anim';
+import { useT } from '../i18n';
 import { C, F } from '../theme';
 
 const tap = () => { Haptics.selectionAsync().catch(() => {}); };
 
-/** Small tracked-out UPPERCASE label. */
+/** Small quiet label (sentence case). */
 export function K({ children, color = C.muted, size = 11, style }: { children: React.ReactNode; color?: string; size?: number; style?: any }) {
-  return <Text style={[{ fontFamily: F.label, fontSize: size, letterSpacing: size * 0.13, textTransform: 'uppercase', color }, style]}>{children}</Text>;
+  return <Text style={[{ fontFamily: F.bodyMed, fontSize: size + 2, letterSpacing: 0.1, color }, style]}>{children}</Text>;
 }
-/** Big condensed UPPERCASE heading. */
+/** Large heading (sentence case). */
 export function Display({ children, size = 34, color = C.fg, style }: { children: React.ReactNode; size?: number; color?: string; style?: any }) {
-  return <Text style={[{ fontFamily: F.display, fontSize: size, lineHeight: size * 1.02, textTransform: 'uppercase', letterSpacing: size * 0.01, color }, style]}>{children}</Text>;
+  return <Text style={[{ fontFamily: F.display, fontSize: size, lineHeight: size * 1.08, color }, style]}>{children}</Text>;
 }
 
 export function Button({ title, onPress, kind = 'primary', disabled, busy, style }: {
@@ -24,7 +25,7 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, style
   return (
     <Press accessibilityRole="button" accessibilityLabel={title} disabled={off} onPress={() => { tap(); onPress(); }}
       style={[{ height: 54, borderRadius: 27, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, opacity: off ? 0.45 : 1 }, style]}>
-      {busy ? <ActivityIndicator color={fg} /> : <K color={fg} size={13}>{title}</K>}
+      {busy ? <ActivityIndicator color={fg} /> : <Text style={{ fontFamily: F.bodyBold, fontSize: 16, color: fg }}>{title}</Text>}
     </Press>
   );
 }
@@ -80,12 +81,12 @@ export function Segmented({ options, value, onChange, dark }: {
 
 export function Card({ children, tone, style }: { children: React.ReactNode; tone?: 'warn' | 'bad' | 'ok' | 'ink'; style?: StyleProp<ViewStyle> }) {
   const bg = tone === 'warn' ? C.warnSoft : tone === 'bad' ? C.badSoft : tone === 'ok' ? C.okSoft : tone === 'ink' ? C.ink : C.surface;
-  return <View style={[{ backgroundColor: bg, borderRadius: 20, padding: 16, gap: 10 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: bg, borderRadius: 18, padding: 16, gap: 10, borderWidth: tone ? 0 : 1, borderColor: C.line }, style]}>{children}</View>;
 }
 
 export function Tag({ label, tone = 'ok' }: { label: string; tone?: 'ok' | 'warn' | 'bad' }) {
   const [bg, fg] = tone === 'ok' ? [C.accentSoft, C.accentText] : tone === 'warn' ? [C.warnSoft, C.warn] : [C.badSoft, C.bad];
-  return <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' }}><K color={fg} size={10}>{label}</K></View>;
+  return <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' }}><K color={fg} size={9}>{label}</K></View>;
 }
 
 export function ErrorText({ children }: { children?: string | null }) {
@@ -114,3 +115,14 @@ export const s = StyleSheet.create({
   strong: { fontFamily: F.bodyBold, fontSize: 16, color: C.fg },
 });
 void dur;
+
+/** Small English / Hindi switch. */
+export function LangToggle() {
+  const { lang, setLang } = useT();
+  return (
+    <Press accessibilityRole="button" accessibilityLabel="Change language" onPress={() => { tap(); setLang(lang === 'en' ? 'hi' : 'en'); }}
+      style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 20, backgroundColor: C.track, justifyContent: 'center' }}>
+      <Text style={{ fontFamily: F.bodyBold, fontSize: 14, color: C.fg }}>{lang === 'en' ? 'हिन्दी' : 'English'}</Text>
+    </Press>
+  );
+}

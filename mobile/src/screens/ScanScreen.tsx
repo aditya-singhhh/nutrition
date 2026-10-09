@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { FadeIn, Laser, Press, Pulse, SheetIn } from '../anim';
 import { api } from '../api';
+import { useT } from '../i18n';
 import ResultView from '../components/ResultView';
 import Screen from '../components/Screen';
 import { Button, Card, Display, ErrorText, Field, K, Tag, s } from '../components/ui';
@@ -26,6 +27,7 @@ const IconBtn = ({ label, onPress, children }: { label: string; onPress: () => v
 
 export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void; onClose: () => void }) {
   const { top, bottom } = useSafeAreaInsets();
+  const { t: tr } = useT();
   const [mode, setMode] = useState<Mode>('scan');
   const [perm, askPerm] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
@@ -138,7 +140,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
           <ErrorText>{err}</ErrorText>
         </Screen>
         {target && <View style={{ padding: 16, paddingBottom: 16, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line }}>
-          <Button title={result.nutrition_for_portion ? `Log 1 serving · ${Math.round(result.nutrition_for_portion.energy_kcal ?? 0)} kcal` : 'Log 1 serving'} onPress={log} busy={busy} />
+          <Button title={result.nutrition_for_portion ? `${tr('logServing')} · ${Math.round(result.nutrition_for_portion.energy_kcal ?? 0)} kcal` : tr('logServing')} onPress={log} busy={busy} />
         </View>}
       </View>
     );
@@ -147,9 +149,9 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <Screen>
-          <Button kind="tonal" title="Back" onPress={() => setCands(null)} style={{ height: 44 }} />
-          <FadeIn><Display size={34}>Which pack is yours?</Display></FadeIn>
-          <Text style={s.body}>We read “{cands.recognised}”. Listings of the same brand often differ, so pick the one that matches your pack (check the size). Or scan the nutrition table for exact numbers.</Text>
+          <Button kind="tonal" title={tr('back')} onPress={() => setCands(null)} style={{ height: 44 }} />
+          <FadeIn><Display size={34}>{tr('pickPack')}</Display></FadeIn>
+          <Text style={s.body}>{tr('pickPackHelp', { name: cands.recognised })}</Text>
           {cands.list.map((c: any, i: number) => (
             <Press key={c.barcode + i} onPress={async () => { const code = c.barcode; setCands(null); await scan(code); }}>
               <Card>
@@ -237,9 +239,9 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
 
       {camMode && !perm?.granted && (
         <View style={{ flex: 1, padding: 24, justifyContent: 'center', gap: 16 }}>
-          <Display size={34} color="#fff">Camera needed</Display>
-          <Text style={{ fontFamily: F.body, fontSize: 15, color: C.onInk }}>Allow the camera to scan. You can also pick a photo from your gallery or type a barcode below.</Text>
-          <Button title="Allow camera" onPress={askPerm} />
+          <Display size={34} color="#fff">{tr('cameraNeeded')}</Display>
+          <Text style={{ fontFamily: F.body, fontSize: 15, color: C.onInk }}>{tr('cameraWhy')}</Text>
+          <Button title={tr('allowCamera')} onPress={askPerm} />
         </View>
       )}
       {camOk && (
@@ -252,8 +254,8 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
             <Laser height={220} color={C.gold} />
           </Pulse>
           <View style={{ alignItems: 'center', gap: 6, paddingHorizontal: 24 }}>
-            <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6, textAlign: 'center' }}>Point at a barcode, a plate or a label</K>
-            <K color={C.onInk} size={10} style={{ textAlign: 'center' }}>Barcodes scan on their own · tap the button for food or labels</K>
+            <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6, textAlign: 'center' }}>{tr('point')}</K>
+            <K color={C.onInk} size={10} style={{ textAlign: 'center' }}>{tr('pointSub')}</K>
           </View>
         </View>
       )}
@@ -261,7 +263,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
 
       <SheetIn key={mode} style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: bsPad, gap: 14, maxHeight: '62%' }}>
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
-        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{slow ? 'Still working… the server may be waking up' : 'Analysing…'}</K></View>}
+        {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{slow ? tr('slow') : tr('analysing')}</K></View>}
         <ErrorText>{err}</ErrorText>
         {notFound && <Text style={s.muted}>Not in any database yet. Point the camera at the NUTRITION TABLE and ingredient list on the pack and tap the button. We'll read it, score it, and remember this barcode for next time.</Text>}
 
@@ -271,7 +273,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
               <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' }}>
                 <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5h.01" stroke={C.fg} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
               </View>
-              <K size={10}>Gallery</K>
+              <K size={10}>{tr('gallery')}</K>
             </Press>
             <Press accessibilityRole="button" accessibilityLabel="Scan food or label" disabled={busy || !camOk} onPress={snap}
               style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: C.accent, alignItems: 'center', justifyContent: 'center', opacity: busy || !camOk ? 0.45 : 1 }}>
@@ -281,7 +283,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
               <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' }}>
                 <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M4 7h16M4 12h10M4 17h6" stroke={C.fg} strokeWidth={2} strokeLinecap="round" fill="none" /></Svg>
               </View>
-              <K size={10}>Type</K>
+              <K size={10}>{tr('type')}</K>
             </Press>
           </View>
         )}

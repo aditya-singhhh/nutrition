@@ -3,7 +3,8 @@ import { RefreshControl, Text, View } from 'react-native';
 import { CountUp, FadeIn, FillBar } from '../anim';
 import { api } from '../api';
 import Screen from '../components/Screen';
-import { Button, Card, Display, ErrorText, K, s } from '../components/ui';
+import { Button, Card, Display, ErrorText, K, LangToggle, s } from '../components/ui';
+import { useT } from '../i18n';
 import { C, F } from '../theme';
 
 const Tile = ({ label, value, max, unit, limit }: { label: string; value: number; max: number; unit: string; limit?: boolean }) => {
@@ -20,6 +21,7 @@ const Tile = ({ label, value, max, unit, limit }: { label: string; value: number
 };
 
 export default function HomeScreen({ refreshKey, onScan }: { refreshKey: number; onScan: () => void }) {
+  const { t: tr } = useT();
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,7 @@ export default function HomeScreen({ refreshKey, onScan }: { refreshKey: number;
   const date = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
   return (
     <Screen refreshControl={<RefreshControl refreshing={busy} onRefresh={load} colors={[C.accent]} />}>
-      <FadeIn><K>{date}</K><Display size={52} style={{ marginTop: 6 }}>Today</Display></FadeIn>
+      <FadeIn style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}><View><K>{date}</K><Display size={44} style={{ marginTop: 6 }}>{tr('today')}</Display></View><LangToggle /></FadeIn>
       <ErrorText>{err}</ErrorText>
       {d && (t?.available ? (
         <>

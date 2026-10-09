@@ -172,7 +172,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
                 <Text style={{ fontFamily: F.display, fontSize: 28, color: C.ink }}>{initial}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={{ fontFamily: F.display, fontSize: 24, color: '#fff', textTransform: 'uppercase' }}>{f.name.trim() || 'Your name'}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: F.display, fontSize: 24, color: '#fff' }}>{f.name.trim() || 'Your name'}</Text>
                 <Text numberOfLines={1} style={{ fontFamily: F.body, fontSize: 13, color: C.onInk }}>{email}</Text>
               </View>
               <K color={C.gold} size={16}>{pct}%</K>

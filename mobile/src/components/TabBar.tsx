@@ -5,11 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Press } from '../anim';
 import { C } from '../theme';
+import { useT } from '../i18n';
 import { K } from './ui';
 
 export type Tab = 'home' | 'scan' | 'ask' | 'profile';
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'home', label: 'Home' }, { key: 'scan', label: 'Scan' }, { key: 'ask', label: 'Ask' }, { key: 'profile', label: 'Profile' },
+const TABS: { key: Tab; label: 'home' | 'scan' | 'ask' | 'profile' }[] = [
+  { key: 'home', label: 'home' }, { key: 'scan', label: 'scan' }, { key: 'ask', label: 'ask' }, { key: 'profile', label: 'profile' },
 ];
 
 function Icon({ k, color }: { k: Tab; color: string }) {
@@ -27,6 +28,7 @@ function Icon({ k, color }: { k: Tab; color: string }) {
 /** Bottom navigation. Its bottom padding equals the Android system-bar inset, so it never sits under back/home buttons. */
 export default function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const { bottom } = useSafeAreaInsets();
+  const { t: tr } = useT();
   const [w, setW] = useState(0);
   const idx = TABS.findIndex((t) => t.key === tab);
   const x = useRef(new Animated.Value(idx)).current;
@@ -40,10 +42,10 @@ export default function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab)
         {TABS.map((t) => {
           const on = t.key === tab;
           return (
-            <Press key={t.key} accessibilityRole="tab" accessibilityLabel={t.label} accessibilityState={{ selected: on }}
+            <Press key={t.key} accessibilityRole="tab" accessibilityLabel={tr(t.label)} accessibilityState={{ selected: on }}
               onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(t.key); }} style={{ width: cell || undefined, flex: cell ? undefined : 1, height: 60, alignItems: 'center' }}>
               <View style={{ height: 36, justifyContent: 'center' }}><Icon k={t.key} color={on ? C.ink : C.muted} /></View>
-              <K color={on ? C.ink : C.muted} size={10}>{t.label}</K>
+              <K color={on ? C.ink : C.muted} size={9}>{tr(t.label)}</K>
             </Press>
           );
         })}
