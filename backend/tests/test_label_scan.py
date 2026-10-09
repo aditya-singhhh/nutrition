@@ -1,5 +1,4 @@
 import base64
-import json
 
 import httpx
 import pytest
@@ -7,8 +6,8 @@ import pytest
 from app.ai import providers
 from app.ai.providers import AIGateway, GeminiVisionProvider
 from app.domain.label import parse_label_nutrition
-from app.models import PackagedProduct, ScanRecord
-from tests.conftest import FULL_PROFILE, make_client, register
+from app.models import ScanRecord
+from tests.conftest import make_client, register
 
 JPEG = base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 300).decode()
 
@@ -23,7 +22,7 @@ def _no_discovery(monkeypatch):
 
 
 def _client(monkeypatch, payload):
-    def post(url, json=None, headers=None, timeout=None):
+    def post(url, json=None, headers=None, timeout=None):  # noqa: F811
         body = {"candidates": [{"content": {"parts": [{"text": __import__("json").dumps(payload)}]}}]}
         return httpx.Response(200, json=body, request=httpx.Request("POST", url))
     monkeypatch.setattr(providers.httpx, "post", post)
