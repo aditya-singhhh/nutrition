@@ -8,11 +8,11 @@ import { Display, ErrorText, K } from '../components/ui';
 import { C, F } from '../theme';
 
 type Msg = { id: number; role: 'user' | 'assistant'; text: string; warn?: boolean };
-const SUGGEST = ['Is masala dosa ok for me?', 'What should I eat next?', 'How much protein today?'];
+const SUGGEST = ['What should I cook for dinner?', 'Is masala dosa ok for me?', 'Tips for my health goal', 'How much protein today?'];
 
 export default function ChatScreen() {
   const { top } = useSafeAreaInsets();
-  const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'assistant', text: 'Hi! Ask about a dish, paste a barcode, ask what to eat next, or how much you have eaten today.' }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'assistant', text: 'Ask me anything about food. I use your profile and today’s meals to answer.' }]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function ChatScreen() {
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1, minHeight: 52, borderRadius: 26, backgroundColor: C.surface, paddingHorizontal: 18, justifyContent: 'center' }}>
-            <TextInput value={text} onChangeText={setText} placeholder="Ask about food…" placeholderTextColor="#7A8A80" maxLength={1000}
+            <TextInput value={text} onChangeText={setText} placeholder="Ask about food or your health goal…" placeholderTextColor="#7A8A80" maxLength={1000}
               onSubmitEditing={() => send()} returnKeyType="send" accessibilityLabel="Message"
               style={{ fontFamily: F.body, fontSize: 16, color: C.fg, paddingVertical: 8 }} />
           </View>

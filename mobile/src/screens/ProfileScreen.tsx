@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FadeIn, FillBar, Press, SheetIn } from '../anim';
 import { api, getBaseUrl, request, setToken } from '../api';
 import Screen from '../components/Screen';
-import { Button, Card, Chip, Display, ErrorText, Field, K, s } from '../components/ui';
+import { Button, Card, Chip, Display, ErrorText, Field, K, Segmented, s } from '../components/ui';
 import { C, F } from '../theme';
 
 type Opt = { key: string; label: string; desc?: string };
@@ -117,6 +117,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
   useEffect(() => { load(); }, [load]);
 
   const errors = useMemo(() => validate(f), [f]);
+  const [ptab, setPtab] = useState<'basics' | 'goals' | 'health' | 'account'>('basics');
   const dirty = useMemo(() => JSON.stringify(f) !== JSON.stringify(base), [f, base]);
   const hasErrors = Object.keys(errors).length > 0;
   const bmi = f.lifeStage === 'none' && (num(f.age) ?? 18) >= 18 ? bmiInfo(num(f.height), num(f.weight)) : null;
@@ -179,12 +180,15 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </View>
             <FillBar pct={pct} color={C.gold} track="#2B3B33" height={8} />
             <Text style={{ fontFamily: F.body, fontSize: 13, color: C.onInk }}>
-              {pct === 100 ? 'Profile complete. Your suggestions and limits are fully personalised.' : `Add ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ' and more' : ''} to personalise your daily targets and food advice.`}
+              {pct === 100 ? 'Profile complete' : `Add ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '…' : ''}`}
             </Text>
           </Card>
         </FadeIn>
 
-        {loaded && targets?.available && (
+        <Segmented value={ptab} onChange={(k) => setPtab(k as any)}
+          options={[{ key: 'basics', label: 'Basics' }, { key: 'goals', label: 'Goals' }, { key: 'health', label: 'Health' }, { key: 'account', label: 'Account' }]} />
+
+        {ptab === 'goals' && loaded && targets?.available && (
           <FadeIn delay={100}>
             <Card>
               <K>Your daily targets</K>
@@ -199,11 +203,12 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </Card>
           </FadeIn>
         )}
-        {loaded && targets && !targets.available && targets.message && <Card tone="warn"><Text style={s.body}>{targets.message}</Text></Card>}
-        {loaded && targets && !targets.available && targets.reason === 'incomplete_profile' && (
+        {ptab === 'goals' && loaded && targets && !targets.available && targets.message && <Card tone="warn"><Text style={s.body}>{targets.message}</Text></Card>}
+        {ptab === 'goals' && loaded && targets && !targets.available && targets.reason === 'incomplete_profile' && (
           <Card tone="warn"><Text style={s.body}>To calculate targets we still need: {targets.missing_fields?.map((m: string) => pretty(m).replace(' cm', '').replace(' kg', '')).join(', ')}.</Text></Card>
         )}
 
+        {ptab === 'basics' && (
         <Section title="About you" delay={140}>
           <Field label="Your name" value={f.name} onChangeText={(t) => set('name', t)} maxLength={60} autoCapitalize="words" />
           <Field label="Age" value={f.age} onChangeText={(t) => set('age', t)} keyboardType="number-pad" maxLength={3} />
@@ -218,7 +223,9 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </View>
           )}
         </Section>
+        )}
 
+        {ptab === 'basics' && (
         <Section title="Body" hint="Used for your calorie and protein targets." delay={180}>
           <Field label="Height (cm)" value={f.height} onChangeText={(t) => set('height', t)} keyboardType="decimal-pad" maxLength={5} />
           <Err t={errors.height} />
@@ -234,7 +241,9 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </View>
           )}
         </Section>
+        )}
 
+        {ptab === 'goals' && (
         <Section title="Lifestyle and goal" delay={220}>
           <View style={{ gap: 8 }}><K>How active are you?</K><Rows opts={ACTIVITY} val={f.activity} set={(k) => set('activity', k)} /></View>
           <View style={{ gap: 8 }}><K>Your goal</K><Rows opts={GOAL} val={f.goal} set={(k) => set('goal', k)} /></View>
@@ -242,12 +251,16 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
           <Err t={errors.target} />
           {goalHint && <Text style={[s.muted, { color: C.warn }]}>{goalHint}</Text>}
         </Section>
+        )}
 
+        {ptab === 'health' && (
         <Section title="Food preferences" delay={260}>
           <View style={{ gap: 8 }}><K>Diet</K><Chips opts={DIET} val={f.diet} set={(k) => set('diet', k)} /></View>
           <View style={{ gap: 8 }}><K>Cuisine you eat most</K><Chips opts={REGION} val={f.region} set={(k) => set('region', k)} /></View>
         </Section>
+        )}
 
+        {ptab === 'health' && (
         <Section title="Health" hint="We use this to flag foods that may not suit you. It is not a diagnosis." delay={300}>
           <View style={{ gap: 8 }}>
             <K>Conditions</K>
@@ -263,7 +276,9 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             </View>
           </View>
         </Section>
+        )}
 
+        {ptab === 'account' && (
         <Section title="Privacy" hint="Your scans are saved to your account so we can show your history and improve accuracy. Delete your account and they go too." delay={330}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={{ flex: 1, gap: 3 }}>
@@ -273,13 +288,16 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             <Switch value={f.share} onValueChange={(v) => set('share', v)} trackColor={{ true: C.accent }} thumbColor="#fff" accessibilityLabel="Help improve food recognition" />
           </View>
         </Section>
+        )}
 
+        {ptab === 'account' && (
         <Section title="Account" delay={340}>
           <View style={{ gap: 3 }}><K size={10}>Signed in as</K><Text style={s.body}>{email}</Text></View>
           <View style={{ gap: 3 }}><K size={10}>Server</K><Text style={{ fontFamily: F.mono, fontSize: 12, color: C.fg }}>{getBaseUrl()}</Text></View>
           <Button kind="tonal" title="Log out" onPress={async () => { await setToken(null); onLogout(); }} />
           <Press accessibilityRole="button" onPress={confirmDelete} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}><K color={C.bad}>Delete my account</K></Press>
         </Section>
+        )}
         <Text style={s.muted}>Nutrition guidance only, not medical advice.</Text>
       </Screen>
 

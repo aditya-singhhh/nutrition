@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Image, KeyboardAvoidingView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { FadeIn, Laser, Press, Pulse, SheetIn } from '../anim';
@@ -35,6 +35,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   const [target, setTarget] = useState<Target | null>(null);
   const [photo, setPhoto] = useState<{ id: number; items: PhotoItem[]; unrecognised: string[] } | null>(null);
   const [cands, setCands] = useState<{ recognised: string; list: any[] } | null>(null);
+  const [frozen, setFrozen] = useState<string | null>(null); // the picture being analysed, shown in place of the live camera
   const [manual, setManual] = useState('');
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<any[]>([]);
@@ -80,9 +81,11 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     const r = await run(() => api.analyzeFood(slug));
     if (r) { setResult(r); setTarget({ food_slug: slug }); }
   }
-  async function analyse(b64: string | null | undefined) {
+  async function analyse(b64: string | null | undefined, uri?: string) {
     if (!b64) { setErr('Could not read that picture. Please try again.'); return; }
+    if (uri) setFrozen(uri);
     const r: any = await run(() => api.scanSmart(b64, missingCode ?? undefined));
+    setFrozen(null);
     if (!r) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (r.kind === 'candidates') { setCands({ recognised: r.recognised ?? '', list: r.candidates ?? [] }); return; }
@@ -100,13 +103,13 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     const pic = await run(async () => cam.current!.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true }));
     if (!pic) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    await analyse(pic.base64);
+    await analyse(pic.base64, pic.uri);
   }
   async function fromGallery() {
     if (busy) return;
     const res = await run(() => ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.4, base64: true }));
     if (!res || res.canceled) return;
-    await analyse(res.assets?.[0]?.base64);
+    await analyse(res.assets?.[0]?.base64, res.assets?.[0]?.uri);
   }
   async function log() {
     if (!target) return;
@@ -232,6 +235,8 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
           barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
           onBarcodeScanned={({ data }) => { if (lock.current || busy) return; lock.current = true; scan(data); }} />
       )}
+      {frozen && <Image source={{ uri: frozen }} resizeMode="cover" accessibilityLabel="Picture being analysed" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
+      {frozen && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.25)' }} />}
       <View style={{ paddingTop: top + 8, paddingHorizontal: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <IconBtn label="Close scanner" onPress={onClose}><Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke="#fff" strokeWidth={2} strokeLinecap="round" /></Svg></IconBtn>
         {camOk ? <IconBtn label="Torch" onPress={() => setTorch(!torch)}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M13 2L4 14h7l-1 8 9-12h-7z" stroke={torch ? C.gold : '#fff'} fill={torch ? C.gold : 'none'} strokeWidth={2} strokeLinejoin="round" /></Svg></IconBtn> : <View />}
@@ -244,7 +249,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
           <Button title={tr('allowCamera')} onPress={askPerm} />
         </View>
       )}
-      {camOk && (
+      {camOk && !frozen && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }} pointerEvents="none">
           <Pulse style={{ width: 300, height: 220 }}>
             <Corner style={{ left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 14 }} />
@@ -258,7 +263,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
           </View>
         </View>
       )}
-      {!camOk && <View style={{ flex: 1 }} />}
+      {(!camOk || !!frozen) && <View style={{ flex: 1 }} />}
 
       <SheetIn key={mode} style={{ backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: bsPad, gap: 14, maxHeight: '62%' }}>
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />

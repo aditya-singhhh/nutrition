@@ -190,6 +190,8 @@ message ─► SAFETY SCREEN ─► emergency / self-harm?  → fixed reply (112
                                    a diagnosis, or medication advice → fall back to the draft
 ```
 
+**Free questions** ("what should I cook tonight?", "tips for my sugar") take the *advice* route: the model gets only de-identified facts (conditions, allergies, diet, goal, age, sex, daily targets, what was eaten today) plus the last six messages, and answers in the user's language under strict rules (no invented nutrient numbers, no diagnosis, no medicine advice, respect allergies). The same validator then checks the reply. If it fails, or the model is unreachable, a deterministic fallback is shown. Emergency, self-harm, eating-disorder, crash-diet and medication messages never reach the model.
+
 If the AI is down or rejected, the user still gets the correct draft.
 
 ---
