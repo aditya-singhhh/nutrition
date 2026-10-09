@@ -65,6 +65,9 @@ Every result with a portion shows what one serving uses of the daily limit: ener
 - **Verdict** (`services/verdict.py`): band + the portion's share of daily limits. excellent → everyday; good → fine; moderate/limit → sometimes/rarely, but "fine in small amounts" if the portion uses 15% or less of every daily limit. A share of 40% or more of one limit is called out. A personal score below 50 can only make the verdict stricter. An allergen match gives "avoid". No score gives "can't judge yet".
 - **Trust** (`catalog.trust_level`): verified > community_confirmed (label scans from 2 other users agree within 10% on 3+ nutrients) > from_scan > community (Open Food Facts). A disagreeing scan changes nothing and stays in the scan log for review.
 
+### 1.7 Healthier options
+`services/alternatives.py`. For a scored product or dish: take items of the **same family** (ghee with ghee, biscuits with biscuits; products of unknown family get no comparison), keep those scoring at least **10 points higher**, drop any that are allergen-blocked or fit the user's profile below 50, and show the top 3 with the real reason (for example "40% less sugar"). Each shows its trust level. When we hold too few, we pull popular Indian products of that family from Open Food Facts (only entries with sugar, sodium, saturated fat and energy), stored as unverified. With nothing better, the app says so.
+
 ### 1.2 Portion arithmetic (food photo)
 
 For each dish: `nutrients = per_100g × grams / 100`, computed for the low and high end of Gemini's gram range. The S / M / L buttons pick low / midpoint / high. The total shown is the sum of the chosen items. Everything is labelled **an estimate**, and dishes under 50% confidence are marked *Not sure, confirm*. The user's corrections are saved against the prediction so accuracy can be measured later.

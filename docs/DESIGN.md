@@ -9,4 +9,4 @@
 7. **Low-end phones and weak networks.** Photos are compressed before upload, requests time out with a clear message, animations respect reduce-motion, and the server cold start is explained instead of showing an error.
 8. **Doctor first.** Conditions (diabetes, blood pressure, cholesterol) tighten the verdict, never loosen it. The disclaimer asks the user to follow their doctor.
 
-Not done yet: Hindi for all screens, regional languages, FSSAI vegetarian/non-vegetarian mark, "healthier alternatives" (needs a bigger verified product table first), voice input.
+Not done yet: Hindi for all screens, regional languages, FSSAI vegetarian/non-vegetarian mark, voice input. Healthier options exist but depend on how many comparable products we hold (they fill up from Open Food Facts and from scans).

@@ -18,7 +18,7 @@ from app.domain.nutrition import round_nutrients, scale_range
 from app.domain.scoring import score_food
 from app.models import FoodItem, ModelPrediction, PackagedProduct, User
 from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn, SmartScanIn
-from app.services import catalog, openfoodfacts
+from app.services import alternatives, catalog, openfoodfacts
 from app.services.audit import audit
 from app.services.daily_share import attach_daily_share
 from app.services.scan_log import record_scan
@@ -67,6 +67,19 @@ def get_food(food_id: int, user: User = Depends(current_user), db: Session = Dep
 def get_product(barcode: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
     prod = _product_or_404(db, _barcode_or_422(barcode))
     return attach_daily_share(catalog.evaluate_product(prod, user_context(user)), user)
+
+
+@router.get("/products/{barcode}/alternatives", tags=["products"])
+def product_alternatives(barcode: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return alternatives.for_product(db, user, _product_or_404(db, _barcode_or_422(barcode)))
+
+
+@router.get("/foods/{slug}/alternatives", tags=["foods"])
+def food_alternatives(slug: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    f = catalog.get_food_by_slug(db, slug)
+    if f is None:
+        raise HTTPException(404, "food not found")
+    return alternatives.for_food(db, user, f)
 
 
 @router.post("/scan/barcode", tags=["scan"])

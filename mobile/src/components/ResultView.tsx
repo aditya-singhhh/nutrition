@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Press } from '../anim';
+import { api } from '../api';
 import { useT } from '../i18n';
 import { CountUp, FadeIn, FillBar, Ring } from '../anim';
 import { C, F, SOFT_RED } from '../theme';
@@ -12,9 +13,19 @@ const ROWS: [string, string, string][] = [['Energy', 'energy_kcal', 'kcal'], ['P
   ['Fat', 'fat_g', 'g'], ['Saturated fat', 'sat_fat_g', 'g'], ['Fibre', 'fiber_g', 'g'], ['Sodium', 'sodium_mg', 'mg']];
 const ringColor = { ok: C.accent, warn: C.gold, bad: SOFT_RED };
 
-export default function ResultView({ r }: { r: any }) {
+export default function ResultView({ r, onOpen }: { r: any; onOpen?: (it: any) => void }) {
   const { t: tr } = useT();
   const [open, setOpen] = useState(false);
+  const [alts, setAlts] = useState<any>(null);
+  const key = r.type === 'food' ? r.slug : r.barcode;
+  const wantAlts = r.quality_score?.score != null && !!onOpen && !!key && !['everyday'].includes(r.verdict?.code);
+  useEffect(() => {
+    setAlts(null);
+    if (!wantAlts) return;
+    let live = true;
+    api.alternatives(r.type === 'food' ? { slug: r.slug } : { barcode: r.barcode }).then((a: any) => { if (live) setAlts(a); }).catch(() => {});
+    return () => { live = false; };
+  }, [key, wantAlts]); // eslint-disable-line react-hooks/exhaustive-deps
   const q = r.quality_score ?? {};
   const pc = r.personal_compatibility ?? {};
   const nut = r.nutrition_for_portion;
@@ -29,23 +40,20 @@ export default function ResultView({ r }: { r: any }) {
   return (
     <View style={{ gap: 14 }}>
       <FadeIn delay={next()}>
-        <Card>
-          <K>{r.type === 'food' ? 'Dish' : r.brand ?? 'Scanned label'}</K>
-          <Text style={{ fontFamily: F.display, fontSize: 30, lineHeight: 31, color: C.fg }}>{r.name ?? 'Scanned product'}</Text>
-          {r.portion && <Text style={s.muted}>Per {r.portion.label} · about {n(r.portion.grams)} g</Text>}
-        </Card>
+        <Text style={{ fontFamily: F.display, fontSize: 26, lineHeight: 31, color: C.fg }}>{r.name ?? 'Scanned product'}</Text>
+        <Text style={s.muted}>{[r.type !== 'food' && r.brand, r.portion && `${r.portion.label} · ${n(r.portion.grams)} g`].filter(Boolean).join(' · ')}</Text>
       </FadeIn>
 
       {vd && (
         <FadeIn delay={next()}>
           <Card tone={vd.tone === 'ok' ? 'ok' : vd.tone === 'warn' ? 'warn' : vd.tone === 'bad' ? 'bad' : undefined}>
             <Text style={{ fontFamily: F.display, fontSize: 26, lineHeight: 31, color: C.fg }}>{tr(('v_' + vd.code) as any)}</Text>
-            {vd.reasons?.filter((x: any) => x.code !== 'allergen' || true).map((x: any, i: number) => (
+            {vd.reasons?.slice(0, 2).map((x: any, i: number) => (
               <Text key={i} style={s.body}>• {tr(('r_' + x.code) as any, { v: x.value ?? '' })}</Text>
             ))}
             {hh && (
               <Text style={s.muted}>
-                {tr('inSpoons')}: {[hh.sugar_tsp != null && `${hh.sugar_tsp} ${tr('tsp')} ${tr('sugarTsp')}`, hh.salt_tsp != null && `${hh.salt_tsp} ${tr('tsp')} ${tr('saltTsp')}`, hh.fat_tsp != null && `${hh.fat_tsp} ${tr('tsp')} ${tr('fatTsp')}`].filter(Boolean).join(' · ')}
+                {[hh.sugar_tsp != null && `${hh.sugar_tsp} ${tr('tsp')} ${tr('sugarTsp')}`, hh.salt_tsp != null && `${hh.salt_tsp} ${tr('tsp')} ${tr('saltTsp')}`, hh.fat_tsp != null && `${hh.fat_tsp} ${tr('tsp')} ${tr('fatTsp')}`].filter(Boolean).join(' · ')}
               </Text>
             )}
           </Card>
@@ -63,7 +71,6 @@ export default function ResultView({ r }: { r: any }) {
             <View style={{ flex: 1, gap: 8 }}>
               <K>{tr('qualityScore')}</K>
               <Tag label={q.band} tone={t} />
-              <Text style={s.muted}>{q.summary}</Text>
             </View>
           </Card>
         </FadeIn>
@@ -71,40 +78,53 @@ export default function ResultView({ r }: { r: any }) {
         <FadeIn delay={next()}>
           <Card tone="warn">
             <K color={C.warn}>{tr('noScore')}</K>
-            <Text style={s.body}>{q.summary ?? 'Not enough nutrition data to give a score.'}</Text>
-            {q.score_range && <Text style={s.muted}>With what we know so far it could land anywhere between {q.score_range.min} and {q.score_range.max} out of 100, so we won't show a single number.</Text>}
+            <Text style={s.body}>{tr('noScoreWhy')}</Text>
           </Card>
         </FadeIn>
       )}
 
-      {r.daily_share?.items?.length > 0 && (
+      {r.daily_share?.items?.filter((d: any) => d.pct >= 10).length > 0 && (
         <FadeIn delay={next()}>
           <Card>
             <K>{tr('oneServing')}</K>
-            {r.daily_share.items.map((d: any) => (
+            {r.daily_share.items.filter((d: any) => d.pct >= 10).slice(0, 3).map((d: any) => (
               <Bar key={d.key} label={d.label} value={d.amount} max={d.limit} unit={d.unit} limit />
             ))}
-            <Text style={s.muted}>{tr('basedOn', { x: r.daily_share.basis })}</Text>
+          </Card>
+        </FadeIn>
+      )}
+
+      {alts && alts.status !== 'unknown_category' && alts.status !== 'no_score' && (
+        <FadeIn delay={next()}>
+          <Card>
+            <K>{tr('better')}</K>
+            {alts.items.length === 0 && <Text style={s.muted}>{tr('betterNone')}</Text>}
+            {alts.items.map((it: any) => (
+              <Press key={it.id} accessibilityRole="button" onPress={() => onOpen?.(it)} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ fontFamily: F.bodyBold, fontSize: 16, color: C.fg }}>{it.name}</Text>
+                  <Text numberOfLines={1} style={s.muted}>{[it.brand, ...it.why.map((w: any) => `${w.pct}% ${tr(('better' + w.code.charAt(0).toUpperCase() + w.code.slice(1)) as any)}`)].filter(Boolean).join(' · ')}</Text>
+                </View>
+                <Tag label={String(it.score)} tone="ok" />
+              </Press>
+            ))}
           </Card>
         </FadeIn>
       )}
 
       {r.label_warnings?.length > 0 && (
-        <FadeIn delay={next()}><Card tone="warn"><K color={C.warn}>{tr('checkPack')}</K>{r.label_warnings.map((w: string, i: number) => <Text key={i} style={s.body}>• {w}</Text>)}</Card></FadeIn>
-      )}
-      {r.created_from_label && (
-        <FadeIn delay={next()}><Card tone="ok"><Text style={s.body}>Saved from your scan, so the next person who scans this barcode gets an answer. It stays marked as unverified.</Text></Card></FadeIn>
+        <FadeIn delay={next()}><Card tone="warn"><K color={C.warn}>{tr('checkPack')}</K>{r.label_warnings.slice(0, 2).map((w: string, i: number) => <Text key={i} style={s.body}>• {w}</Text>)}</Card></FadeIn>
       )}
 
-      {(pc.alerts?.length > 0 || pc.notes?.length > 0 || (pc.overall != null && !pc.blocked)) && (
+      {(pc.alerts?.length > 0 || (open && (pc.notes?.length > 0 || pc.overall != null))) && (
         <FadeIn delay={next()}>
           <Card tone={pc.blocked ? 'bad' : pc.alerts?.length ? 'warn' : undefined}>
             <K color={pc.blocked ? C.bad : C.fg}>{tr('forYou')}</K>
             {pc.alerts?.map((a: any, i: number) => <Text key={i} style={[s.body, { fontFamily: F.bodyBold }]}>{a.message}</Text>)}
-            {pc.overall != null && !pc.blocked && <Text style={s.body}>Fit for your profile: {pc.overall}/100 ({pc.label})</Text>}
-            {pc.conditions?.flatMap((c: any) => c.details.filter((x: any) => x.verdict === 'unfavourable')
+            {open && pc.overall != null && !pc.blocked && <Text style={s.body}>Fit for your profile: {pc.overall}/100 ({pc.label})</Text>}
+            {open && pc.conditions?.flatMap((c: any) => c.details.filter((x: any) => x.verdict === 'unfavourable')
               .map((x: any) => <Text key={c.condition + x.metric} style={s.body}>• {c.label}: {x.metric.replace('_', ' ')} {n(x.value)} {x.unit}. {x.why_it_matters}</Text>))}
-            {pc.notes?.map((x: string, i: number) => <Text key={i} style={s.muted}>{x}</Text>)}
+            {open && pc.notes?.map((x: string, i: number) => <Text key={i} style={s.muted}>{x}</Text>)}
           </Card>
         </FadeIn>
       )}
@@ -126,7 +146,7 @@ export default function ResultView({ r }: { r: any }) {
         </FadeIn>
       )}
 
-      {(nut || per100) && (
+      {open && (nut || per100) && (
         <FadeIn delay={next()}>
           <Card>
             <K>{tr('facts')}</K>
@@ -168,8 +188,7 @@ export default function ResultView({ r }: { r: any }) {
         <FadeIn delay={next()}><Card tone="bad"><K color={C.bad}>{tr('contains')}</K><Text style={s.body}>{r.ingredients.allergens.join(', ')}</Text></Card></FadeIn>
       )}
 
-      {r.data_quality?.warning && <FadeIn delay={next()}><Card tone="warn"><Text style={s.body}>{r.data_quality.warning}</Text></Card></FadeIn>}
-      {(q.components?.length > 0 || additives.length > 0) && (
+      {(q.components?.length > 0 || additives.length > 0 || nut || per100) && (
         <Press accessibilityRole="button" onPress={() => setOpen(!open)} style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text style={{ fontFamily: F.bodyBold, fontSize: 15, color: C.accent }}>{open ? tr('hide') : tr('seeHow')}</Text>
         </Press>

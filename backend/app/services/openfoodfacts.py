@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.label import _consistent
@@ -12,7 +13,33 @@ from app.models import PackagedProduct
 logger = logging.getLogger(__name__)
 
 _URL = "https://world.openfoodfacts.org/api/v2/product/{code}.json"
-_FIELDS = "product_name,brands,nutriments,ingredients_text,allergens_tags,nova_group,serving_quantity,countries_tags"
+_FIELDS = "product_name,brands,nutriments,ingredients_text,allergens_tags,nova_group,serving_quantity,countries_tags,categories_tags"
+
+
+# Coarse product families, so "healthier options" compares ghee with ghee and biscuits with biscuits (never ghee with cereal).
+# (our category name, substrings of Open Food Facts category tags)
+FAMILIES = [
+    ("beverage", ("beverages", "sodas", "juices", "soft-drinks", "energy-drinks")),
+    ("ghee", ("ghee", "clarified-butter")),
+    ("biscuit", ("biscuit", "cookies")),
+    ("noodles", ("noodle", "pasta", "vermicelli")),
+    ("chips", ("chips", "crisps", "namkeen", "salty-snacks")),
+    ("cereal", ("breakfast-cereals", "muesli", "oats", "cornflakes")),
+    ("spread", ("peanut-butter", "spreads", "jams")),
+    ("dairy", ("yogurt", "curd", "dahi", "paneer", "cheese")),
+    ("chocolate", ("chocolate", "candies", "confectioner")),
+    ("sauce", ("ketchup", "sauces", "chutney")),
+    ("bread", ("breads", "buns")),
+    ("oil", ("cooking-oil", "vegetable-oils", "edible-oil")),
+]
+
+
+def family_of(tags: list | None) -> str:
+    joined = " ".join(str(t).lower() for t in (tags or []))
+    for name, needles in FAMILIES:
+        if any(n in joined for n in needles):
+            return name
+    return "packaged"
 
 
 def _num(v) -> float | None:
@@ -84,7 +111,7 @@ def lookup_and_store(db: Session, code: str, client: httpx.Client | None = None)
     countries = p.get("countries_tags") or []
     prod = PackagedProduct(
         barcode=code, brand=(p.get("brands") or "Unknown").split(",")[0].strip()[:80] or "Unknown",
-        name=(p.get("product_name") or "Unnamed product").strip()[:160], category="packaged",
+        name=(p.get("product_name") or "Unnamed product").strip()[:160], category=family_of(p.get("categories_tags")),
         serving_g=_num(p.get("serving_quantity")), nutrients_per_100g=nutrients,
         ingredients_text=p.get("ingredients_text") or None,
         allergens=[t.split(":")[-1] for t in (p.get("allergens_tags") or [])], additives=[],
@@ -130,3 +157,42 @@ def search(query: str, client: httpx.Client | None = None, limit: int = 6) -> li
     for c in out:
         c.pop("_rank")
     return out[:limit]
+
+
+def fetch_family(db: Session, family: str, client: httpx.Client | None = None, limit: int = 20) -> int:
+    """Pull popular Indian products of one family from Open Food Facts into our table (unverified), so 'healthier options'
+    has something to compare with. Returns how many were added. Network failures add nothing."""
+    needles = dict(FAMILIES).get(family)
+    if not needles:
+        return 0
+    try:
+        r = (client or httpx).get(_SEARCH, params={"action": "process", "json": 1, "page_size": 40, "sort_by": "unique_scans_n",
+                                                   "tagtype_0": "categories", "tag_contains_0": "contains", "tag_0": needles[0],
+                                                   "tagtype_1": "countries", "tag_contains_1": "contains", "tag_1": "india",
+                                                   "fields": _FIELDS + ",code"},
+                                  timeout=10.0, headers={"User-Agent": "HealthCompanion/0.1 (nutrition app)"})
+        r.raise_for_status()
+        products = r.json().get("products", [])
+    except (httpx.HTTPError, ValueError) as e:
+        logger.info("OFF family fetch failed: %s", type(e).__name__)
+        return 0
+    added = 0
+    for p in products if isinstance(products, list) else []:
+        code = str(p.get("code") or "")
+        n = map_nutrients(p.get("nutriments") or {})
+        if not (code.isdigit() and 8 <= len(code) <= 14) or not all(k in n for k in ("energy_kcal", "sugar_g", "sodium_mg", "sat_fat_g")):
+            continue  # only products with the key numbers can be compared fairly
+        if db.scalar(select(PackagedProduct.id).where(PackagedProduct.barcode == code)) is not None:
+            continue
+        db.add(PackagedProduct(
+            barcode=code, brand=(p.get("brands") or "Unknown").split(",")[0].strip()[:80] or "Unknown",
+            name=(p.get("product_name") or "Unnamed product").strip()[:160], category=family, serving_g=_num(p.get("serving_quantity")),
+            nutrients_per_100g=n, ingredients_text=p.get("ingredients_text") or None,
+            allergens=[t.split(":")[-1] for t in (p.get("allergens_tags") or [])], additives=[],
+            nova=p.get("nova_group") if p.get("nova_group") in (1, 2, 3, 4) else None, country="IN",
+            source="open_food_facts", confidence="crowd_sourced", verified=False))
+        added += 1
+        if added >= limit:
+            break
+    db.commit()
+    return added

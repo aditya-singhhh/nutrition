@@ -134,7 +134,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
             <Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" stroke={C.fg} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
             <K color={C.fg}>Scan again</K>
           </Press>
-          <ResultView r={result} />
+          <ResultView r={result} onOpen={(it) => (it.type === "food" ? pick(it.id) : scan(it.id))} />
           {result.extracted_text ? <Card><K>What we read from the label</K><Text style={s.muted}>{result.extracted_text}</Text></Card> : null}
           {msg && <Text style={{ color: C.accent, fontFamily: F.bodyBold }}>{msg}</Text>}
           <ErrorText>{err}</ErrorText>
@@ -255,7 +255,6 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
           </Pulse>
           <View style={{ alignItems: 'center', gap: 6, paddingHorizontal: 24 }}>
             <K color="#fff" style={{ textShadowColor: '#000', textShadowRadius: 6, textAlign: 'center' }}>{tr('point')}</K>
-            <K color={C.onInk} size={10} style={{ textAlign: 'center' }}>{tr('pointSub')}</K>
           </View>
         </View>
       )}
@@ -265,7 +264,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
         <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: '#B8C4B6' }} />
         {busy && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={C.accent} /><K color={C.fg}>{slow ? tr('slow') : tr('analysing')}</K></View>}
         <ErrorText>{err}</ErrorText>
-        {notFound && <Text style={s.muted}>Not in any database yet. Point the camera at the NUTRITION TABLE and ingredient list on the pack and tap the button. We'll read it, score it, and remember this barcode for next time.</Text>}
+        {notFound && <Text style={s.muted}>Not found. Photograph the nutrition table on the pack.</Text>}
 
         {mode === 'scan' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
