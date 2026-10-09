@@ -57,3 +57,5 @@ Not yet built or run on a device by me.
 - **Barcode:** local products first, then Open Food Facts (crowd-sourced, always shown as unverified).
 - **Food photo / label:** set `HC_GEMINI_API_KEY` on the server (never in the app or repo). Gemini only names dishes
   from our food list and reads label text; all nutrition numbers come from our own tables. Optional: `HC_GEMINI_MODEL`.
+
+How it works: see [docs/ALGORITHM.md](docs/ALGORITHM.md).
