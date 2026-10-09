@@ -108,7 +108,7 @@ def test_label_text_scan(client, auth):
     client.put(v1("/users/me/profile"), headers=auth, json={"allergies": ["milk"]})
     r = client.post(v1("/scan/label-text"), headers=auth, json={
         "text": "Ingredients: Sugar, Milk solids, Colour (INS 102), Preservative (INS 211)"}).json()
-    assert r["score_is_partial"] and r["quality_score"]["confidence"] == "low"
+    assert r["score_is_partial"] and r["quality_score"]["score"] is None  # ingredients alone never earn a score
     assert r["personal_compatibility"]["blocked"]
     assert {a["ins"] for a in r["ingredients"]["additives"]} == {"102", "211"}
 

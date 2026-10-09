@@ -39,6 +39,9 @@ def _describe(value: float, good: float, bad: float, unit: str) -> str:
     return f"{value:g} {unit} is in the middle range"
 
 
+REQUIRED_FOR_SCORE = ("sugar", "sodium", "sat_fat")
+
+
 def score_food(
     per100g: Mapping[str, float | None],
     *,
@@ -76,6 +79,7 @@ def score_food(
         if value is None:
             exclude(key, spec["label"], "no data available")
             continue
+        spec = {**spec, **cfg.get("category_thresholds", {}).get(category or "", {}).get(key, {})}
         sub = band_score(float(value), spec["good"], spec["bad"])
         comps.append({"key": key, "label": spec["label"], "value": float(value), "unit": spec["unit"],
                       "subscore": round(sub, 1), "weight": weights[key],
@@ -116,6 +120,22 @@ def score_food(
                       "explanation": "; ".join(notes) if notes else "no flagged additives or ingredients",
                       "source": "Additive reference list (see evidence_source per additive)"})
 
+    # Safety gate: a handful of components must never stand in for a whole food. Sugar, sodium and saturated fat are the
+    # three nutrients that most often make a food a poor choice, so without all of them (where they apply) we give a
+    # RANGE, not a number. (Without this, an ingredient-only label such as ghee's "cow milk fat" scored 100.)
+    present = {c["key"] for c in comps}
+    required = [k for k in REQUIRED_FOR_SCORE if k not in excluded_by_category]
+    missing_required = [k for k in required if k not in present]
+    if missing_required:
+        applicable = sum(w for k, w in weights.items() if k not in excluded_by_category)
+        got = sum(c["subscore"] * c["weight"] for c in comps)
+        lost = sum(w for k, w in weights.items() if k not in excluded_by_category and k not in present)
+        labels = [cfg["components"][k]["label"].lower() for k in missing_required]
+        return {"score": None, "band": None, "components": comps, "excluded": excluded, "confidence": "none",
+                "score_range": {"min": round(got / applicable), "max": round((got + 100 * lost) / applicable)} if applicable else None,
+                "missing_required": missing_required, "config_version": cfg["version"], "config_status": cfg["status"],
+                "summary": f"Not enough data for a score. Still needed: {', '.join(labels)}. Scan the nutrition table to complete it."}
+
     total_weight = sum(c["weight"] for c in comps)
     if total_weight <= 0:
         return {"score": None, "band": None, "components": [], "excluded": excluded, "confidence": "none",
@@ -123,6 +143,14 @@ def score_food(
                 "summary": "Not enough data to score this food."}
 
     score = sum(c["subscore"] * c["weight"] for c in comps) / total_weight
+    caps = cfg.get("red_flag_caps")
+    reds = [c for c in comps if c["key"] in REQUIRED_FOR_SCORE and c["subscore"] <= 0.0]
+    cap_note = None
+    if caps and reds:
+        cap = caps["two_or_more"] if len(reds) >= 2 else caps["one"]
+        if score > cap:
+            score = float(cap)
+            cap_note = "Score capped because " + " and ".join(c["label"].lower() for c in reds) + (" is" if len(reds) == 1 else " are") + " at a high level."
     for c in comps:
         c["effective_weight"] = round(c["weight"] / total_weight, 3)
         c["points"] = round(c["subscore"] * c["weight"] / total_weight, 1)
@@ -140,6 +168,8 @@ def score_food(
     weakest = min(comps, key=lambda c: c["subscore"])
     strongest = max(comps, key=lambda c: c["subscore"])
     summary = f"Strongest: {strongest['label'].lower()}. Weakest: {weakest['label'].lower()}."
+    if cap_note:
+        summary = cap_note + " " + summary
     return {"score": round(score), "band": band_label(score, cfg), "components": comps, "excluded": excluded,
-            "confidence": confidence, "data_completeness": round(completeness, 2), "summary": summary,
+            "confidence": confidence, "data_completeness": round(completeness, 2), "summary": summary, "capped": cap_note is not None,
             "config_version": cfg["version"], "config_status": cfg["status"]}

@@ -152,7 +152,9 @@ def test_score_orders_foods_sensibly_and_explains():
 
 def test_missing_data_excluded_not_zeroed():
     r = score_food({"sugar_g": 5})
-    assert r["score"] == 100 and r["confidence"] == "low"
+    # Missing data is excluded, never treated as zero - and too little data gives a RANGE instead of a number.
+    assert r["score"] is None and set(r["missing_required"]) == {"sodium", "sat_fat"}
+    assert r["score_range"]["min"] < r["score_range"]["max"]
     assert {e["key"] for e in r["excluded"]} >= {"sodium", "fiber"}
     assert score_food({})["score"] is None
 
