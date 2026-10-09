@@ -20,6 +20,7 @@ from app.models import FoodItem, ModelPrediction, PackagedProduct, User
 from app.schemas import AnalyzeIn, BarcodeIn, LabelTextIn, SmartScanIn
 from app.services import catalog, openfoodfacts
 from app.services.audit import audit
+from app.services.daily_share import attach_daily_share
 from app.services.scan_log import record_scan
 from app.services.catalog import user_context
 
@@ -65,7 +66,7 @@ def get_food(food_id: int, user: User = Depends(current_user), db: Session = Dep
 @router.get("/products/{barcode}", tags=["products"])
 def get_product(barcode: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
     prod = _product_or_404(db, _barcode_or_422(barcode))
-    return catalog.evaluate_product(prod, user_context(user))
+    return attach_daily_share(catalog.evaluate_product(prod, user_context(user)), user)
 
 
 @router.post("/scan/barcode", tags=["scan"])
@@ -77,7 +78,7 @@ def scan_barcode(body: BarcodeIn, user: User = Depends(current_user), db: Sessio
         record_scan(db, user, "barcode", barcode=code, outcome={"found": False})  # missing products are the most useful signal
         raise
     audit(db, user.id, "scan_barcode", "product", prod.id)
-    out = catalog.evaluate_product(prod, user_context(user))
+    out = attach_daily_share(catalog.evaluate_product(prod, user_context(user)), user)
     record_scan(db, user, "barcode", barcode=code,
                 outcome={"found": True, "source": prod.source, "score": out["quality_score"].get("score")})
     return out
@@ -91,10 +92,10 @@ def analyze_food(body: AnalyzeIn, user: User = Depends(current_user), db: Sessio
         if f is None:
             raise HTTPException(404, "food not found")
         g = body.grams if body.grams is not None else (body.servings or 1) * f.serving_g
-        return catalog.evaluate_food(f, ctx, grams=g)
+        return attach_daily_share(catalog.evaluate_food(f, ctx, grams=g), user)
     prod = _product_or_404(db, _barcode_or_422(body.barcode or ""))
     g = body.grams if body.grams is not None else (body.servings or 1) * (prod.serving_g or 100.0)
-    return catalog.evaluate_product(prod, ctx, grams=g)
+    return attach_daily_share(catalog.evaluate_product(prod, ctx, grams=g), user)
 
 
 # ------------------------------------------------------------------ label OCR / ingredient analysis
@@ -204,6 +205,16 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
     data = decode_image_b64(body.image_base64, get_settings().max_upload_bytes)
     res = _call_provider(lambda: gw.vision.smart(data, _known_foods(db)))
     ctx = user_context(user)
+    if res.kind == "product" and not res.barcode:
+        query = " ".join(x for x in (res.brand, res.product_name) if x)
+        cands = openfoodfacts.search(query) if get_settings().off_lookup else []
+        record_scan(db, user, "product", model=gw.vision.name, image=data, extracted={"recognised": query},
+                    outcome={"candidates": [c["barcode"] for c in cands]})
+        if cands:
+            return {"kind": "candidates", "recognised": query, "candidates": cands,
+                    "message": "Pack sizes and batches of the same brand can have different numbers. Pick the one that matches your pack."}
+        raise HTTPException(422, {"code": "nothing_recognised", "message":
+                                  f"We recognised “{query}” but couldn't find its nutrition data. Point the camera at the nutrition table on the pack and tap scan."})
     if res.kind == "product":
         code = _barcode_or_422(res.barcode)
         try:
@@ -212,7 +223,7 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
             record_scan(db, user, "product", barcode=code, model=gw.vision.name, image=data, outcome={"found": False})
             raise
         audit(db, user.id, "scan_barcode", "product", prod.id)
-        out = {**catalog.evaluate_product(prod, ctx), "kind": "product"}
+        out = attach_daily_share({**catalog.evaluate_product(prod, ctx), "kind": "product"}, user)
         record_scan(db, user, "product", barcode=code, model=gw.vision.name, image=data,
                     outcome={"found": True, "source": prod.source, "score": out["quality_score"].get("score")})
         return out
@@ -243,6 +254,7 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
                 out["portion"] = {"grams": ln.serving_g, "label": "1 serving"}
                 out["nutrition_for_portion"] = ln.per_serving
         out["name"] = res.product_name or "Scanned label"
+        attach_daily_share(out, user)
         pred = ModelPrediction(user_id=user.id, kind="label_ocr", model_name=gw.vision.name, model_version=gw.vision.version,
                                confidence=None, input_type="image", input_digest=hashlib.sha256(data).hexdigest(),
                                output={"chars": len(res.label_text), "basis": ln.basis})
@@ -264,7 +276,7 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
                 additives=[], nova=None, country="IN", source="user_label_scan", confidence="ai_read_label", verified=False)
             db.add(prod)
             db.commit()
-            out = {**catalog.evaluate_product(prod, ctx), "kind": "product", "created_from_label": True,
+            out = {**attach_daily_share(catalog.evaluate_product(prod, ctx), user), "kind": "product", "created_from_label": True,
                    "extracted_text": res.label_text, "label_nutrition": ln.to_dict(), "label_warnings": ln.warnings,
                    "prediction_id": pred.id}
         record_scan(db, user, "label", barcode=code, model=gw.vision.name, image=data, prediction_id=pred.id,

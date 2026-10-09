@@ -6,6 +6,7 @@ import logging
 import httpx
 from sqlalchemy.orm import Session
 
+from app.domain.label import _consistent
 from app.models import PackagedProduct
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,10 @@ def map_nutrients(n: dict) -> dict:
     if na is not None:
         pairs["sodium_mg"] = round(na * 1000, 1)
     out.update({k: v for k, v in pairs.items() if v is not None})
-    return out
+    # Crowd-sourced entries are often wrong: drop values that are physically impossible, never "fix" them.
+    if out.get("protein_g", 0) + out.get("carbs_g", 0) + out.get("fat_g", 0) > 105:
+        return {}
+    return _consistent(out, [])
 
 
 def fetch_product(code: str, client: httpx.Client | None = None) -> dict | None:
@@ -89,3 +93,40 @@ def lookup_and_store(db: Session, code: str, client: httpx.Client | None = None)
     db.add(prod)
     db.commit()
     return prod
+
+
+_SEARCH = "https://world.openfoodfacts.org/cgi/search.pl"
+
+
+def search(query: str, client: httpx.Client | None = None, limit: int = 6) -> list[dict]:
+    """Find packaged products by brand + name. Different pack sizes and batches of the same brand carry different
+    numbers, so we return CANDIDATES for the user to confirm instead of silently picking one."""
+    q = " ".join(query.split())[:120]
+    if len(q) < 3:
+        return []
+    try:
+        r = (client or httpx).get(_SEARCH, params={"search_terms": q, "search_simple": 1, "action": "process", "json": 1,
+                                                   "page_size": 15, "fields": _FIELDS + ",code,quantity"},
+                                  timeout=10.0, headers={"User-Agent": "HealthCompanion/0.1 (nutrition app)"})
+        r.raise_for_status()
+        products = r.json().get("products", [])
+    except (httpx.HTTPError, ValueError) as e:
+        logger.info("OFF search failed: %s", type(e).__name__)
+        return []
+    words = {w for w in q.lower().split() if len(w) > 2}
+    out = []
+    for p in products if isinstance(products, list) else []:
+        code = str(p.get("code") or "")
+        n = map_nutrients(p.get("nutriments") or {})
+        if not (code.isdigit() and 8 <= len(code) <= 14) or "energy_kcal" not in n:
+            continue
+        name, brand = (p.get("product_name") or "").strip(), (p.get("brands") or "").split(",")[0].strip()
+        hay = f"{brand} {name}".lower()
+        out.append({"barcode": code, "name": name[:100] or "Unnamed", "brand": brand[:60], "quantity": (p.get("quantity") or "")[:30],
+                    "serving_g": _num(p.get("serving_quantity")), "energy_kcal": n.get("energy_kcal"), "fat_g": n.get("fat_g"),
+                    "sat_fat_g": n.get("sat_fat_g"), "complete": all(k in n for k in ("sugar_g", "sodium_mg", "sat_fat_g")),
+                    "_rank": (sum(w in hay for w in words), "sat_fat_g" in n)})
+    out.sort(key=lambda c: c["_rank"], reverse=True)
+    for c in out:
+        c.pop("_rank")
+    return out[:limit]

@@ -126,6 +126,7 @@ class SmartScan:
     label_text: str = ""  # when kind == label
     label_nutrition: dict | None = None  # raw table read off the pack (unvalidated)
     product_name: str = ""
+    brand: str = ""
     barcode: str = ""  # digits read from a visible barcode number, when kind == product
 
 
@@ -356,7 +357,8 @@ class GeminiVisionProvider:
             '- Prepared food or a meal: kind "food". For each distinct dish give "name" (plain English dish name) and, if it '
             "matches one of these ids, its \"slug\":\n"
             f"{menu}\n"
-            '- A packaged product whose barcode NUMBER is readable: kind "product" and put the digits in "barcode".\n'
+            '- A packaged product seen from the front or side: kind "product". Put the brand in "brand", the product name in '
+            '"product_name", and the barcode digits in "barcode" ONLY if the number is clearly readable (otherwise leave it empty).\n'
             '- The printed ingredients and/or nutrition table of a packaged product: kind "label". Put the ingredient list and '
             'additive codes exactly as printed into "label_text", the product name if visible into "product_name", and read the '
             'NUTRITION TABLE exactly as printed into "nutrition": {"serving_g": grams per serving or null, "per_100g": {...}, '
@@ -365,7 +367,7 @@ class GeminiVisionProvider:
             'Copy numbers exactly; never estimate or fill in missing ones.\n'
             '- Otherwise kind "none".\n'
             'Return JSON: {"kind":"food|product|label|none","items":[{"name":"...","slug":"<id or empty>","confidence":0..1,'
-            '"grams_min":number,"grams_max":number}],"barcode":"","label_text":"","product_name":"","nutrition":null}. For food give a realistic edible-weight '
+            '"grams_min":number,"grams_max":number}],"barcode":"","brand":"","label_text":"","product_name":"","nutrition":null}. For food give a realistic edible-weight '
             "range in grams for the portion shown. Never return calories or other nutrition values."
         )
         raw = self._c.generate(prompt, image, json_out=True)
@@ -378,6 +380,9 @@ class GeminiVisionProvider:
         if 8 <= len(digits) <= 14:
             return SmartScan("product", barcode=digits)
         nutrition = data.get("nutrition") if isinstance(data.get("nutrition"), dict) else None
+        if kind == "product" and (str(data.get("brand") or "").strip() or str(data.get("product_name") or "").strip()):
+            return SmartScan("product", product_name=str(data.get("product_name") or "").strip()[:100],
+                             brand=str(data.get("brand") or "").strip()[:60])
         if kind == "label" and (str(data.get("label_text", "")).strip() or nutrition):
             return SmartScan("label", label_text=str(data.get("label_text", "")).strip(), label_nutrition=nutrition,
                              product_name=str(data.get("product_name") or "").strip()[:160])

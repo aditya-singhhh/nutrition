@@ -113,3 +113,64 @@ def test_photo_kept_only_after_opt_in_and_deleted_with_account(monkeypatch):
     assert [r.image is not None for r in _rows(c)] == [True]
     assert c.delete("/api/v1/users/me", headers=auth).status_code == 204
     assert _rows(c) == []
+
+
+# ---------------------------------------------------------------- product-specific lookup (no generalising by category)
+def _off_search_client(products):
+    return httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"products": products})))
+
+
+def test_off_search_returns_candidates_ranked_and_filtered():
+    from app.services import openfoodfacts as off
+    prods = [
+        {"code": "8904109465284", "product_name": "Cow ghee", "brands": "Patanjali", "quantity": "905 g", "serving_quantity": 15,
+         "nutriments": {"energy-kcal_100g": 933, "fat_100g": 100, "saturated-fat_100g": 73.3, "sugars_100g": 0, "sodium_100g": 0}},
+        {"code": "8904109489846", "product_name": "Cow GHEE", "brands": "Patanjali", "nutriments": {}},  # no data: dropped
+        {"code": "111", "product_name": "bad code", "brands": "X", "nutriments": {"energy-kcal_100g": 1}},  # invalid barcode: dropped
+        {"code": "8901000000017", "product_name": "Amul Ghee", "brands": "Amul", "nutriments": {"energy-kcal_100g": 900, "fat_100g": 99.5}},
+    ]
+    r = off.search("Patanjali cow ghee", _off_search_client(prods))
+    assert [c["barcode"] for c in r] == ["8904109465284", "8901000000017"]
+    assert r[0]["complete"] is True and r[1]["complete"] is False and r[0]["serving_g"] == 15
+
+
+def test_off_impossible_values_are_dropped():
+    from app.services import openfoodfacts as off
+    n = off.map_nutrients({"energy-kcal_100g": 500, "fat_100g": 100, "proteins_100g": 50, "carbohydrates_100g": 50})
+    assert n == {}
+    n = off.map_nutrients({"energy-kcal_100g": 900, "fat_100g": 10, "saturated-fat_100g": 60})
+    assert "sat_fat_g" not in n
+
+
+def test_front_of_pack_photo_returns_candidates_to_confirm(monkeypatch):
+    from app.services import openfoodfacts as off
+    monkeypatch.setattr(off, "search", lambda q, *a, **k: [{"barcode": "8904109465284", "name": "Cow ghee", "brand": "Patanjali",
+                        "quantity": "905 g", "serving_g": 15, "energy_kcal": 933, "fat_g": 100, "sat_fat_g": 73.3, "complete": True}])
+    c, auth = _client(monkeypatch, {"kind": "product", "brand": "Patanjali", "product_name": "Cow's Ghee", "barcode": ""})
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "off_lookup", True)
+    j = c.post("/api/v1/scan/smart", json={"image_base64": JPEG}, headers=auth).json()
+    assert j["kind"] == "candidates" and j["recognised"] == "Patanjali Cow's Ghee" and j["candidates"][0]["barcode"] == "8904109465284"
+
+
+def test_front_of_pack_with_no_data_asks_for_the_nutrition_table(monkeypatch):
+    from app.services import openfoodfacts as off
+    monkeypatch.setattr(off, "search", lambda *a, **k: [])
+    c, auth = _client(monkeypatch, {"kind": "product", "brand": "Patanjali", "product_name": "Cow's Ghee", "barcode": ""})
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "off_lookup", True)
+    r = c.post("/api/v1/scan/smart", json={"image_base64": JPEG}, headers=auth)
+    assert r.status_code == 422 and "nutrition table" in r.json()["detail"]["message"]
+
+
+# ---------------------------------------------------------------- per-serving share of the day
+def test_daily_share_for_ghee_serving():
+    from app.services.daily_share import daily_share
+    s = daily_share({"energy_kcal": 140, "sat_fat_g": 11, "sugar_g": 0, "sodium_mg": 0}, None)
+    sat = next(i for i in s["items"] if i["key"] == "sat_fat_g")
+    assert sat["pct"] == 50 and sat["limit"] == 22 and "2000 kcal" in s["basis"]
+
+
+def test_product_scan_includes_daily_share(client, auth):
+    j = client.post("/api/v1/scan/barcode", json={"barcode": "8900000000029"}, headers=auth).json()
+    assert any(i["key"] == "sodium_mg" and i["pct"] > 0 for i in j["daily_share"]["items"])
