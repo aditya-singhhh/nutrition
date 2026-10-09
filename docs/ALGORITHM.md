@@ -50,6 +50,17 @@ The reader is not trusted. `domain/label.py` does the following:
 
 If the user first scanned a barcode that was not found and then scans the label, the label is **saved as a product under that barcode** (unverified), so the next person's scan works.
 
+### 1.4 Packaged products are judged on their own data (no category averages)
+
+A packaged product is never scored from what "ghee in general" looks like. Its score comes from that product's own numbers: our product table, then Open Food Facts for that barcode, then the nutrition table on the label. Rules:
+- Open Food Facts values that are impossible (macros over 105 g per 100 g, saturated fat above total fat) are dropped, not shown.
+- A front-of-pack photo with no readable barcode searches Open Food Facts by brand and name and shows **candidates** (pack size, kcal, saturated fat). The user picks their pack. Listings of the same brand can disagree, so the nutrition-table scan is the exact route.
+- With no data at all, there is **no score**.
+- Only unpackaged food (idli, dal, roti) is generalised, from the food table, and is labelled an estimate.
+
+### 1.5 Per-serving impact ("daily share")
+Every result with a portion shows what one serving uses of the daily limit: energy, saturated fat, sugar, sodium, as a percentage of the user's own targets, or of a 2000 kcal reference day (saturated fat 22 g, sugar 50 g, sodium 2000 mg) when no profile exists. Example: a 15 g ghee serving carries about 11 g saturated fat, about 50% of the reference limit.
+
 ### 1.2 Portion arithmetic (food photo)
 
 For each dish: `nutrients = per_100g × grams / 100`, computed for the low and high end of Gemini's gram range. The S / M / L buttons pick low / midpoint / high. The total shown is the sum of the chosen items. Everything is labelled **an estimate**, and dishes under 50% confidence are marked *Not sure, confirm*. The user's corrections are saved against the prediction so accuracy can be measured later.

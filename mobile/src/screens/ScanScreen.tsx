@@ -32,6 +32,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
   const [result, setResult] = useState<any>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [photo, setPhoto] = useState<{ id: number; items: PhotoItem[]; unrecognised: string[] } | null>(null);
+  const [cands, setCands] = useState<{ recognised: string; list: any[] } | null>(null);
   const [manual, setManual] = useState('');
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<any[]>([]);
@@ -82,6 +83,7 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
     const r: any = await run(() => api.scanSmart(b64, missingCode ?? undefined));
     if (!r) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (r.kind === 'candidates') { setCands({ recognised: r.recognised ?? '', list: r.candidates ?? [] }); return; }
     if (r.kind === 'product') { setResult(r); setTarget({ barcode: r.barcode }); }
     else if (r.kind === 'label') setResult({ ...r, name: 'Scanned label' });
     else setPhoto({
@@ -138,6 +140,26 @@ export default function ScanScreen({ onLogged, onClose }: { onLogged: () => void
         {target && <View style={{ padding: 16, paddingBottom: 16, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line }}>
           <Button title={result.nutrition_for_portion ? `Log 1 serving · ${Math.round(result.nutrition_for_portion.energy_kcal ?? 0)} kcal` : 'Log 1 serving'} onPress={log} busy={busy} />
         </View>}
+      </View>
+    );
+  }
+  if (cands) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Screen>
+          <Button kind="tonal" title="Back" onPress={() => setCands(null)} style={{ height: 44 }} />
+          <FadeIn><Display size={34}>Which pack is yours?</Display></FadeIn>
+          <Text style={s.body}>We read “{cands.recognised}”. Listings of the same brand often differ, so pick the one that matches your pack (check the size). Or scan the nutrition table for exact numbers.</Text>
+          {cands.list.map((c: any, i: number) => (
+            <Press key={c.barcode + i} onPress={async () => { const code = c.barcode; setCands(null); await scan(code); }}>
+              <Card>
+                <Text style={[s.body, { fontFamily: F.bodyBold }]}>{c.name}{c.brand ? ` · ${c.brand}` : ''}</Text>
+                <Text style={s.muted}>{[c.quantity, c.energy_kcal != null ? `${Math.round(c.energy_kcal)} kcal/100g` : null, c.sat_fat_g != null ? `sat fat ${c.sat_fat_g} g` : null, c.complete ? null : 'incomplete data'].filter(Boolean).join(' · ')}</Text>
+              </Card>
+            </Press>
+          ))}
+          <ErrorText>{err}</ErrorText>
+        </Screen>
       </View>
     );
   }

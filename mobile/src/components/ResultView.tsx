@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { CountUp, FadeIn, FillBar, Ring } from '../anim';
 import { C, DISCLAIMER, F } from '../theme';
-import { Card, K, Tag, s } from './ui';
+import { Bar, Card, K, Tag, s } from './ui';
 
 const n = (v: unknown) => (typeof v === 'number' ? String(Math.round(v * 10) / 10) : '-');
 const tone = (band?: string): 'ok' | 'warn' | 'bad' => (/good|great|excellent|healthy/i.test(band ?? '') ? 'ok' : /moderate|ok|fair/i.test(band ?? '') ? 'warn' : 'bad');
@@ -49,6 +49,18 @@ export default function ResultView({ r }: { r: any }) {
             <K color={C.warn}>No score yet</K>
             <Text style={s.body}>{q.summary ?? 'Not enough nutrition data to give a score.'}</Text>
             {q.score_range && <Text style={s.muted}>With what we know so far it could land anywhere between {q.score_range.min} and {q.score_range.max} out of 100, so we won't show a single number.</Text>}
+          </Card>
+        </FadeIn>
+      )}
+
+      {r.daily_share?.items?.length > 0 && (
+        <FadeIn delay={next()}>
+          <Card>
+            <K>One serving uses</K>
+            {r.daily_share.items.map((d: any) => (
+              <Bar key={d.key} label={d.label} value={d.amount} max={d.limit} unit={d.unit} limit />
+            ))}
+            <Text style={s.muted}>Based on {r.daily_share.basis}.</Text>
           </Card>
         </FadeIn>
       )}
