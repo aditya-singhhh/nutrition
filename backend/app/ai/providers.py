@@ -181,6 +181,18 @@ def _mime(image: bytes) -> str:
     return "image/jpeg"
 
 
+def _red_png(size: int = 16) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(t: bytes, d: bytes) -> bytes:
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+
+    raw = b"".join(b"\x00" + b"\xff\x00\x00" * size for _ in range(size))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
 _FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest",
                     "gemini-2.0-flash", "gemini-1.5-flash")
 _API = "https://generativelanguage.googleapis.com/v1beta"
@@ -273,10 +285,15 @@ class _GeminiClient:
         self.last_error = "; ".join(errors[-6:])
         raise ProviderError(f"Gemini call failed ({self.last_error})")
 
-    def probe(self) -> dict:
+    def probe(self, with_image: bool = False) -> dict:
         try:
-            self.generate("Reply with the single word: ok", None, json_out=False)
-            return {"ok": True, "route": self.working[0], "model": self.working[1]} if self.working else {"ok": True}
+            if with_image:
+                answer = self.generate("What is the main colour of this image? Answer with one word.", _red_png(), json_out=False)
+                base = {"image_ok": True, "model_said": answer.strip()[:40]}
+            else:
+                self.generate("Reply with the single word: ok", None, json_out=False)
+                base = {}
+            return {"ok": True, **base, **({"route": self.working[0], "model": self.working[1]} if self.working else {})}
         except ProviderError as e:
             return {"ok": False, "error": str(e), "models_google_offers_this_key": self.available,
                     "tried_models": self._candidates(), "key_prefix_is_AQ": self._key.startswith("AQ.")}
@@ -407,7 +424,7 @@ class AIGateway:
         gw.gemini = shared
         return gw
 
-    def status(self) -> dict:
+    def status(self, with_image: bool = False) -> dict:
         if self.gemini is None:
             return {"gemini_configured": False, "vision": self.vision.name, "ocr": self.ocr.name}
-        return {"gemini_configured": True, **self.gemini.probe()}
+        return {"gemini_configured": True, **self.gemini.probe(with_image)}

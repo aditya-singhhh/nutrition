@@ -175,3 +175,18 @@ def test_gemini_probe_reports_failure(monkeypatch):
 def test_ai_status_endpoint(client):
     r = client.get("/api/v1/ai/status")
     assert r.status_code == 200 and r.json()["gemini_configured"] is False
+
+
+def test_image_probe_sends_valid_png(monkeypatch):
+    sent = {}
+
+    def post(url, json=None, headers=None, timeout=None):
+        sent.update(json)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": "Red"}]}}]}, request=httpx.Request("POST", url))
+    monkeypatch.setattr(providers.httpx, "post", post)
+    r = providers._GeminiClient("k", "gemini-2.5-flash").probe(with_image=True)
+    assert r["image_ok"] is True and r["model_said"] == "Red"
+    inline = sent["contents"][0]["parts"][1]["inline_data"]
+    assert inline["mime_type"] == "image/png"
+    import base64
+    assert base64.b64decode(inline["data"])[:8] == b"\x89PNG\r\n\x1a\n"

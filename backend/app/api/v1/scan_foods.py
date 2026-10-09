@@ -209,15 +209,16 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
                               "message": "We couldn't see food or a product label. Try again with better light and the item filling the frame."})
 
 
-_status_cache: dict = {"at": 0.0, "val": None}
+_status_cache: dict = {}
 
 
 @router.get("/ai/status", tags=["scan"])
-def ai_status(gw: AIGateway = Depends(get_gateway)):
-    """Open in a browser to see whether food-photo recognition works and which model/endpoint is in use.
+def ai_status(image: bool = False, gw: AIGateway = Depends(get_gateway)):
+    """Open in a browser to see whether food-photo recognition works and which model/endpoint is in use. Add ?image=true to also test image input.
     Reveals no secrets. Cached for 60 s so it can't be used to burn quota."""
     import time
     now = time.time()
-    if _status_cache["val"] is None or now - _status_cache["at"] > 60:
-        _status_cache.update(at=now, val=gw.status())
-    return _status_cache["val"]
+    hit = _status_cache.get(image)
+    if hit is None or now - hit[0] > 60:
+        hit = _status_cache[image] = (now, gw.status(image))
+    return hit[1]
