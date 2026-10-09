@@ -17,11 +17,13 @@ from sqlalchemy.orm import Session
 
 from app.ai.providers import AIGateway, LLMRequest, ProviderError
 from app.domain.barcode import InvalidBarcode, normalize_barcode
+from sqlalchemy import select
+
 from app.models import ChatMessage, ChatSession, ModelPrediction, User
 from app.safety.engine import screen_user_message, validate_reply
 from app.services import catalog
 from app.services.catalog import user_context
-from app.services.dashboard import today_summary
+from app.services.dashboard import targets_for, today_summary
 from app.services.recommendations import recommend
 
 logger = logging.getLogger(__name__)
@@ -128,7 +130,40 @@ def _draft_recs(r: dict) -> str:
     return "Based on today's intake, you could try: " + "; ".join(lines) + ". " + DISCLAIMER
 
 
-def _draft_fallback() -> str:
+def personal_facts(db: Session, user: User) -> dict:
+    """What the assistant may know about this person. No name, email or ids: this goes to an external model."""
+    p = user.profile
+    facts: dict = {
+        "conditions": [c.condition for c in user.conditions], "allergies": [a.allergen for a in user.allergies],
+        "diet_preference": p.diet_preference if p else None, "goal": p.goal if p else None,
+        "age": p.age if p else None, "sex": p.sex if p else None, "life_stage": getattr(p, "life_stage", None) if p else None,
+    }
+    t = targets_for(user)
+    if t.get("available"):
+        facts["daily_targets"] = {k: round(t[k]) for k in ("energy_kcal", "protein_g", "fiber_g", "sugar_g_max", "sat_fat_g_max", "sodium_mg_max") if k in t}
+    try:
+        s = today_summary(db, user)
+        facts["eaten_today"] = {k: round(v) for k, v in s["totals"].items() if k in ("energy_kcal", "protein_g", "fiber_g", "sugar_g", "sodium_mg")}
+        facts["meals_logged_today"] = len(s["meals"])
+        if s.get("remaining"):
+            facts["remaining_today"] = {k: round(v) for k, v in s["remaining"].items() if k in ("energy_kcal", "protein_g", "fiber_g")}
+    except Exception:  # never let a summary problem break chat
+        logger.exception("could not build today's facts")
+    return {k: v for k, v in facts.items() if v not in (None, [], {})}
+
+
+def _draft_fallback(facts: dict | None = None) -> str:
+    if facts:
+        bits = []
+        if facts.get("goal"):
+            bits.append(f"your goal is to {facts['goal']} weight")
+        if facts.get("conditions"):
+            bits.append("you manage " + ", ".join(c.replace("_", " ") for c in facts["conditions"]))
+        if facts.get("diet_preference"):
+            bits.append(f"you eat {facts['diet_preference'].replace('_', ' ')}")
+        if bits:
+            return ("I couldn't reach my answering service just now, so I won't guess. What I know about you: " + "; ".join(bits) +
+                    ". Try again in a moment, or ask about a specific dish, a barcode, today's intake, or what to eat next. " + DISCLAIMER)
     return ("I can check a packaged food (send its barcode), look up a dish from our Indian food list, summarise "
             "what you've eaten today, or suggest what to eat next. I don't have verified information to answer "
             "that one, and I'd rather not guess - for medical questions please ask your doctor or dietitian.")
@@ -168,7 +203,7 @@ class ChatOrchestrator:
         if food:
             ev = catalog.evaluate_food(food, ctx)
             return "evaluate_food", ["search_food_database", "get_user_profile", "evaluate_food_for_user"], ev, _draft_evaluation(ev)
-        return "unsupported", [], {}, _draft_fallback()
+        return "advice", ["get_user_profile", "get_today_nutrition"], personal_facts(db, user), _draft_fallback(personal_facts(db, user))
 
     # ---- main entry -----------------------------------------------------------------------
     def handle(self, db: Session, user: User, message: str, session_id: int | None = None) -> Turn:
@@ -187,9 +222,12 @@ class ChatOrchestrator:
             intent, tools, facts, draft = self._route(db, user, message)
             turn = Turn(reply=draft, intent=intent, tools_used=tools)
             model_name, model_version = "deterministic", "1"
-            if intent in ("evaluate_product", "evaluate_food", "recommend", "today_summary"):
+            if intent in ("evaluate_product", "evaluate_food", "recommend", "today_summary", "advice"):
                 try:
-                    res = self.gateway.llm.generate(LLMRequest(SYSTEM_PROMPT, message, facts, draft, PROMPT_VERSION))
+                    history = tuple((m.role, m.content) for m in reversed(list(db.scalars(
+                        select(ChatMessage).where(ChatMessage.session_id == session.id).order_by(ChatMessage.id.desc()).limit(6)))))
+                    res = self.gateway.llm.generate(LLMRequest(SYSTEM_PROMPT, message, facts, draft, PROMPT_VERSION,
+                                                               mode="advise" if intent == "advice" else "rewrite", history=history))
                     ok, problems = validate_reply(res.text, facts)
                     turn.validation = {"passed": ok, "problems": problems}
                     if ok:

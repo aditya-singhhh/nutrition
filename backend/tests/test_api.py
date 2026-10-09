@@ -237,7 +237,7 @@ def test_chat_safety_short_circuits(client, auth):
 
 def test_chat_does_not_improvise_outside_verified_scope(client, auth):
     r = chat(client, auth, "Which supplement cures my thyroid problem?")
-    assert r["intent"] == "unsupported" and "doctor or dietitian" in r["reply"]
+    assert r["intent"] == "advice" and "doctor or dietitian" in r["reply"]
 
 
 def test_chat_unknown_product_and_bad_barcode(client, auth):
@@ -291,3 +291,48 @@ def test_llm_valid_rewrite_is_used_and_traced():
 def test_chat_input_limits(client, auth):
     assert client.post(v1("/chat"), headers=auth, json={"message": ""}).status_code == 422
     assert client.post(v1("/chat"), headers=auth, json={"message": "x" * 1001}).status_code == 422
+
+
+class _Spy(_Fixed):
+    def generate(self, req):
+        self.req = req
+        return super().generate(req)
+
+
+def _profiled(llm):
+    c, h = _llm_client(llm)
+    c.put(v1("/users/me/profile"), headers=h, json={**FULL_PROFILE, "conditions": ["diabetes"], "allergies": ["peanut"], "display_name": "Asha"})
+    return c, h
+
+
+def test_free_question_is_answered_with_personal_facts_and_no_identity():
+    spy = _Spy("Try a katori of dal with one roti and plenty of sabzi; it suits your diabetes goals and avoids peanuts.")
+    c, h = _profiled(spy)
+    r = chat(c, h, "what should I cook for dinner tonight, I am tired")
+    assert r["intent"] == "advice" and r["reply"].startswith("Try a katori")
+    assert spy.req.mode == "advise"
+    f = spy.req.facts
+    assert f["conditions"] == ["diabetes"] and f["allergies"] == ["peanut"] and f["diet_preference"] == "vegetarian"
+    assert "Asha" not in str(f) and "user@example.com" not in str(f)
+
+
+def test_free_answer_with_invented_numbers_or_medicine_advice_is_rejected():
+    c, h = _profiled(_Fixed("Eat 500 kcal of paneer and stop taking metformin."))
+    r = chat(c, h, "any tips to control sugar through food?")
+    assert "metformin" not in r["reply"] and "500" not in r["reply"]
+
+
+def test_follow_up_sees_recent_history():
+    spy = _Spy("Yes, that works for lunch.")
+    c, h = _profiled(spy)
+    chat(c, h, "I like paratha")
+    sid = c.post(v1("/chat"), headers=h, json={"message": "is it fine for lunch?"}).json()["session_id"]
+    chat2 = c.post(v1("/chat"), headers=h, json={"message": "and what about dinner?", "session_id": sid}).json()
+    assert chat2["intent"] == "advice" and any("lunch" in t for _, t in spy.req.history)
+
+
+def test_emergency_still_bypasses_the_model():
+    spy = _Spy("should never be called")
+    c, h = _profiled(spy)
+    r = chat(c, h, "I have severe chest pain")
+    assert r["safety_level"] != "ok" and not hasattr(spy, "req")

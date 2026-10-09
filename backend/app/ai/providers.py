@@ -4,6 +4,7 @@ Privacy rule: callers pass the minimum necessary context (no name/email/ids) to 
 """
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -31,6 +32,8 @@ class LLMRequest:
     facts: dict  # verified numbers/rules produced by deterministic tools
     draft: str  # deterministic draft answer built from the facts
     prompt_version: str
+    mode: str = "rewrite"  # rewrite = polish the draft | advise = answer a free question from the facts
+    history: tuple = ()  # recent (role, text) turns, oldest first
 
 
 @dataclass
@@ -89,6 +92,41 @@ class AnthropicLLMProvider:
         if not text.strip():
             raise ProviderError("LLM returned empty text")
         return LLMResult(text=text.strip(), model=self._model, version="api")
+
+
+_ADVISE_RULES = (
+    "Answer the person's question as a warm, practical Indian nutrition companion. Use ONLY the PERSON FACTS to personalise "
+    "(goal, diet, conditions, allergies, targets, today's intake). Rules: (1) Reply in the same language the person wrote in "
+    "(English, Hindi or Hinglish). (2) Keep it under 110 words, plain words, at most 4 short bullet lines if a list helps. "
+    "(3) Suggest common Indian foods and household measures (katori, roti, teaspoon). (4) Do NOT state calories, grams, milligrams or "
+    "percentages of any food unless that exact number is in PERSON FACTS; describe amounts in words instead. (5) Never diagnose, "
+    "never advise on medicines, doses, insulin or stopping treatment, and never tell them to ignore a doctor. For anything about "
+    "symptoms, test results or medicines say to ask their doctor. (6) Respect allergies and diet preference strictly. "
+    "(7) If the question is not about food, health habits or this app, politely say you only help with food and nutrition."
+)
+
+
+class GeminiLLMProvider:
+    """Free-text answers and tone rewrites through Gemini. Output is always checked by safety.validate_reply."""
+
+    name = "gemini"
+
+    def __init__(self, client: "_GeminiClient"):
+        self._c = client
+
+    def generate(self, req: LLMRequest) -> LLMResult:
+        hist = "\n".join(f"{'Person' if r == 'user' else 'You'}: {t}" for r, t in req.history[-6:])
+        if req.mode == "advise":
+            prompt = (f"{req.system}\n\n{_ADVISE_RULES}\n\nPERSON FACTS (JSON):\n{json.dumps(req.facts, default=str)}\n\n"
+                      f"RECENT CHAT:\n{hist or '(none)'}\n\nQUESTION:\n{req.user_message}\n\nANSWER:")
+        else:
+            prompt = (f"{req.system}\n\nQUESTION:\n{req.user_message}\n\nVERIFIED FACTS (JSON):\n{json.dumps(req.facts, default=str)}\n\n"
+                      f"DRAFT ANSWER:\n{req.draft}\n\nRewrite the draft in a warm, concise tone (max 90 words, same language as the question). "
+                      "Keep every number exactly as in the draft; add no new numbers, diagnoses or medication advice.")
+        text = self._c.generate(prompt, None, json_out=False).strip()
+        if not text:
+            raise ProviderError("LLM returned empty text")
+        return LLMResult(text=text, model=self._c.working[1] if self._c.working else "gemini", version="api")
 
 
 # ---------------------------------------------------------------- Vision
@@ -464,6 +502,8 @@ class AIGateway:
             ocr = MockOCRProvider()
         elif s.ocr_provider == "gemini" or (gem and s.ocr_provider == "null"):
             ocr = GeminiOCRProvider(s.gemini_api_key, s.gemini_model, shared)
+        if shared is not None and s.llm_provider == "mock":
+            llm = GeminiLLMProvider(shared)  # a Gemini key is enough to get real chat answers
         gw = cls(llm=llm, vision=vision, ocr=ocr)
         gw.gemini = shared
         return gw
