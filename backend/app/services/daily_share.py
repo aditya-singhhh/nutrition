@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.models import User
+from app.services.verdict import attach_verdict
 from app.services.dashboard import targets_for
 
 # 2000 kcal reference when the user has no targets yet: free sugar and saturated fat at 10% of energy, WHO sodium limit.
@@ -32,4 +33,4 @@ def attach_daily_share(out: dict, user: User) -> dict:
     share = daily_share(out.get("nutrition_for_portion"), targets_for(user))
     if share:
         out["daily_share"] = share
-    return out
+    return attach_verdict(out)

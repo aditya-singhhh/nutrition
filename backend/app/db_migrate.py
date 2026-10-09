@@ -16,6 +16,7 @@ ADDED_COLUMNS = [
     ("user_profiles", "target_weight_kg", "FLOAT"),
     ("user_profiles", "life_stage", "VARCHAR(20)"),
     ("user_profiles", "training_opt_in", "BOOLEAN"),
+    ("packaged_products", "confirmations", "INTEGER"),
 ]
 
 

@@ -279,6 +279,10 @@ def scan_smart(body: SmartScanIn, user: User = Depends(current_user), db: Sessio
             out = {**attach_daily_share(catalog.evaluate_product(prod, ctx), user), "kind": "product", "created_from_label": True,
                    "extracted_text": res.label_text, "label_nutrition": ln.to_dict(), "label_warnings": ln.warnings,
                    "prediction_id": pred.id}
+        elif code and per100:
+            existing = catalog.get_product(db, code)
+            if existing is not None and catalog.confirm_from_label(db, existing, per100, user):
+                out["data_quality"] = catalog.data_quality(existing)
         record_scan(db, user, "label", barcode=code, model=gw.vision.name, image=data, prediction_id=pred.id,
                     extracted={"text": res.label_text, "nutrition": res.label_nutrition, "parsed": ln.to_dict()},
                     outcome={"score": out["quality_score"].get("score"), "warnings": ln.warnings,

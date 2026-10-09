@@ -31,8 +31,17 @@ def user_context(user: User) -> UserContext:
     )
 
 
+def trust_level(obj) -> str:
+    """verified (checked by us) > community_confirmed (2+ independent label scans agree) > from_scan (one user's scan) > community (open database)."""
+    if obj.verified:
+        return "verified"
+    if obj.source == "user_label_scan":
+        return "community_confirmed" if (getattr(obj, "confirmations", 0) or 0) >= 2 else "from_scan"
+    return "community"
+
+
 def data_quality(obj) -> dict:
-    dq = {"source": obj.source, "confidence": obj.confidence, "verified": obj.verified}
+    dq = {"source": obj.source, "confidence": obj.confidence, "verified": obj.verified, "trust": trust_level(obj)}
     if not obj.verified:
         dq["warning"] = _UNVERIFIED_WARNING.format(source=obj.source)
     return dq
@@ -138,3 +147,31 @@ def evaluate_product(prod: PackagedProduct, ctx: UserContext, grams: float | Non
         "ingredients": analysis.to_dict(),
         "quality_score": score, "personal_compatibility": compat, "data_quality": data_quality(prod),
     }
+
+
+_AGREE_KEYS = ("energy_kcal", "protein_g", "carbs_g", "sugar_g", "fat_g", "sat_fat_g", "sodium_mg")
+
+
+def values_agree(a: dict, b: dict, tol: float = 0.10) -> bool:
+    """True when at least 3 nutrients are present in both and every shared one is within `tol` (or 0.5 absolute for tiny values)."""
+    shared = [k for k in _AGREE_KEYS if a.get(k) is not None and b.get(k) is not None]
+    if len(shared) < 3:
+        return False
+    return all(abs(a[k] - b[k]) <= max(tol * max(abs(a[k]), abs(b[k])), 0.5) for k in shared)
+
+
+def confirm_from_label(db: Session, prod: PackagedProduct, per100: dict, user) -> bool:
+    """A user-scanned product gains trust when DIFFERENT users' label scans agree with it. Each user counts once; a
+    disagreeing scan changes nothing (it is kept in the scan log for review)."""
+    from app.models import ScanRecord
+    if prod.source != "user_label_scan" or prod.verified:
+        return False
+    if not values_agree(prod.nutrients_per_100g, per100):
+        return False
+    already = db.scalar(select(ScanRecord.id).where(ScanRecord.user_id == user.id, ScanRecord.barcode == prod.barcode,
+                                                    ScanRecord.kind == "label").limit(1))
+    if already:
+        return False
+    prod.confirmations = (prod.confirmations or 0) + 1
+    db.commit()
+    return True

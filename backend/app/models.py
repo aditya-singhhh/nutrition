@@ -116,6 +116,7 @@ class PackagedProduct(Base):
     confidence: Mapped[str] = mapped_column(String(40))
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     last_verified: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    confirmations: Mapped[int | None] = mapped_column(Integer, default=0)  # independent label scans that agree with the stored values
 
 
 class Meal(Base):
