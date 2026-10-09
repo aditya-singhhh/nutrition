@@ -51,6 +51,25 @@ def test_off_maps_and_stores(db):
     assert p.brand == "Acme" and p.allergens == ["milk"] and p.country == "IN"
 
 
+def test_off_keeps_partial_entry_with_ingredients(db):
+    body = {"status": 1, "product": {"product_name": "Namkeen", "ingredients_text": "gram flour, oil, salt", "nutriments": {}}}
+    c = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=body)))
+    p = off.lookup_and_store(db, "8901234567893", c)
+    assert p is not None and p.nutrients_per_100g == {}
+
+
+def test_off_tries_code_variants(db):
+    seen = []
+
+    def handler(r):
+        seen.append(r.url.path)
+        hit = r.url.path.endswith("/0123456789012.json")
+        return httpx.Response(200, json={"status": 1, "product": {"product_name": "X", "nutriments": {"energy-kcal_100g": 10}}}
+                              if hit else {"status": 0})
+    assert off.lookup_and_store(db, "123456789012", httpx.Client(transport=httpx.MockTransport(handler))) is not None
+    assert len(seen) == 2
+
+
 def test_off_rejects_incomplete_or_missing(db):
     c = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"status": 0})))
     assert off.lookup_and_store(db, "8901234567891", c) is None

@@ -55,12 +55,26 @@ def fetch_product(code: str, client: httpx.Client | None = None) -> dict | None:
     return data["product"]
 
 
+def _variants(code: str) -> list[str]:
+    """Same product can be indexed as EAN-13, UPC-A (12) or without leading zeros."""
+    out = [code]
+    for v in (code.zfill(13), code.lstrip("0"), code[1:] if len(code) == 13 and code[0] == "0" else ""):
+        if v and v not in out:
+            out.append(v)
+    return out
+
+
 def lookup_and_store(db: Session, code: str, client: httpx.Client | None = None) -> PackagedProduct | None:
-    p = fetch_product(code, client)
+    p = None
+    for v in _variants(code):
+        p = fetch_product(v, client)
+        if p is not None:
+            break
     if p is None:
         return None
     nutrients = map_nutrients(p.get("nutriments") or {})
-    if "energy_kcal" not in nutrients:  # too incomplete to score; user should scan the label instead
+    # Keep partial entries (name + ingredients, or some nutrients): unknown values stay unknown, never 0.
+    if not nutrients and not (p.get("ingredients_text") or "").strip():
         return None
     nova = p.get("nova_group")
     countries = p.get("countries_tags") or []
