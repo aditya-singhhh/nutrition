@@ -2,14 +2,14 @@
   "expo": {
     "name": "Health Companion",
     "slug": "health-companion",
-    "version": "0.12.0",
+    "version": "0.12.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": { "supportsTablet": false, "bundleIdentifier": "com.healthcompanion.app" },
     "android": {
       "package": "com.healthcompanion.app",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

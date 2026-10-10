@@ -123,6 +123,22 @@ function ListRow({ icon, title, value, onPress, last, danger }: { icon: string; 
     </Press>
   );
 }
+function Detail({ label, value, last }: { label: string; value?: string | null | false; last?: boolean }) {
+  return (
+    <View style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: last ? 0 : 1, borderColor: C.line }}>
+      <Text style={s.muted}>{label}</Text>
+      <Text style={{ flex: 1, textAlign: 'right', fontFamily: F.bodyMed, fontSize: 15, color: value ? C.fg : '#98A39C', textTransform: 'capitalize' }}>{value || 'Not set'}</Text>
+    </View>
+  );
+}
+function EditCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 16, gap: 16 }}>
+      <Text style={{ fontFamily: F.display, fontSize: 18, color: C.fg }}>{title}</Text>
+      {children}
+    </View>
+  );
+}
 function EditSheet({ visible, title, onClose, children }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   const { bottom } = useSafeAreaInsets();
   return (
@@ -172,7 +188,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
   useEffect(() => { load(); }, [load]);
 
   const errors = useMemo(() => validate(f), [f]);
-  const [sheet, setSheet] = useState<null | 'about' | 'body' | 'goal' | 'food' | 'health'>(null);
+  const [editing, setEditing] = useState(false);
   const dirty = useMemo(() => JSON.stringify(f) !== JSON.stringify(base), [f, base]);
   const hasErrors = Object.keys(errors).length > 0;
   const bmi = f.lifeStage === 'none' && (num(f.age) ?? 18) >= 18 ? bmiInfo(num(f.height), num(f.weight)) : null;
@@ -199,7 +215,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         display_name: f.name.trim() || null, age: num(f.age), height_cm: num(f.height), weight_kg: num(f.weight), target_weight_kg: num(f.target),
         sex: f.sex, activity_level: f.activity, goal: f.goal, diet_preference: f.diet, region: f.region, life_stage: f.lifeStage,
         conditions: f.conditions, allergies: f.allergies, training_opt_in: f.share });
-      setBase(f); setSaved(true);
+      setBase(f); setSaved(true); setEditing(false);
       setTargets(await request('GET', '/users/me/targets'));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onSaved();
@@ -213,6 +229,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
     ]);
   }
 
+  function cancelEdit() { setF(base); setSaved(false); setErr(null); setEditing(false); }
   async function shareReport() {
     try { const r: any = await api.report(7); await Share.share({ message: r.text }); } catch (e: any) { setErr(e.message); }
   }
@@ -234,9 +251,83 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
 
   if (reviewing) return <ReviewScreen onClose={() => setReviewing(false)} />;
 
+  if (editing) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <Screen contentContainerStyle={{ gap: 16, paddingBottom: 120 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontFamily: F.display, fontSize: 28, color: C.fg }}>Edit profile</Text>
+            <Press accessibilityRole="button" onPress={cancelEdit} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}><Text style={{ fontFamily: F.bodyBold, fontSize: 15, color: C.muted }}>Cancel</Text></Press>
+          </View>
+          <ErrorText>{err}</ErrorText>
+          <EditCard title="Personal">
+          <Field bg={C.surface} label="Your name" value={f.name} onChangeText={(t) => set('name', t)} maxLength={60} autoCapitalize="words" />
+          <Field bg={C.surface} label="Age" value={f.age} onChangeText={(t) => set('age', t)} keyboardType="number-pad" maxLength={3} />
+          <Err t={errors.age} />
+          {num(f.age) !== null && (num(f.age) as number) < 18 && <Text style={s.muted}>Under 18: we show food information, but daily targets for young people should come from a paediatrician or dietitian.</Text>}
+          <View style={{ gap: 8 }}><K>Sex (used for calorie estimates)</K><Chips opts={SEX} val={f.sex} set={(k) => set('sex', k)} /></View>
+          {f.sex !== 'male' && f.sex !== null && (
+            <View style={{ gap: 8 }}>
+              <K>Pregnancy or breastfeeding</K>
+              <Chips opts={[{ key: 'none', label: 'Neither' }, { key: 'pregnant', label: 'Pregnant' }, { key: 'breastfeeding', label: 'Breastfeeding' }]} val={f.lifeStage} set={(k) => set('lifeStage', k)} />
+              {f.lifeStage !== 'none' && <Text style={s.muted}>Your needs change a lot right now, so we won't calculate calorie targets. Please follow your doctor's or dietitian's plan.</Text>}
+            </View>
+          )}
+          </EditCard>
+          <EditCard title="Body">
+          <Field bg={C.surface} label="Height (cm)" value={f.height} onChangeText={(t) => set('height', t)} keyboardType="decimal-pad" maxLength={5} />
+          <Err t={errors.height} />
+          <Field bg={C.surface} label="Weight (kg)" value={f.weight} onChangeText={(t) => set('weight', t)} keyboardType="decimal-pad" maxLength={6} />
+          <Err t={errors.weight} />
+          {bmi && (
+            <View style={{ gap: 8, backgroundColor: C.bg, borderRadius: 14, padding: 14 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <K>BMI</K><Text style={{ fontFamily: F.display, fontSize: 26, color: C.fg }}>{bmi.v}</Text>
+              </View>
+              <FillBar pct={bmi.pct} color={bmi.tone} track={C.track} height={6} />
+              <Text style={s.muted}>{bmi.label} (Asian-Indian cut-offs). A rough guide only.</Text>
+            </View>
+          )}
+          </EditCard>
+          <EditCard title="Goal and activity">
+          <View style={{ gap: 8 }}><K>Your goal</K><Rows opts={GOAL} val={f.goal} set={(k) => set('goal', k)} /></View>
+          <View style={{ gap: 8 }}><K>How active are you?</K><Rows opts={ACTIVITY} val={f.activity} set={(k) => set('activity', k)} /></View>
+          <Field bg={C.surface} label="Target weight (kg, optional)" value={f.target} onChangeText={(t) => set('target', t)} keyboardType="decimal-pad" maxLength={6} />
+          <Err t={errors.target} />
+          {goalHint && <Text style={[s.muted, { color: C.warn }]}>{goalHint}</Text>}
+          </EditCard>
+          <EditCard title="Food preferences">
+          <View style={{ gap: 8 }}><K>Diet</K><Chips opts={DIET} val={f.diet} set={(k) => set('diet', k)} /></View>
+          <View style={{ gap: 8 }}><K>Cuisine you eat most</K><Chips opts={REGION} val={f.region} set={(k) => set('region', k)} /></View>
+          </EditCard>
+          <EditCard title="Conditions and allergies">
+          <Text style={s.muted}>We use this to flag foods that may not suit you. It is not a diagnosis.</Text>
+          <View style={{ gap: 8 }}>
+            <K>Conditions</K>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {CONDITIONS.map((c) => <Chip key={c} label={pretty(c)} on={f.conditions.includes(c)} onPress={() => set('conditions', toggle(f.conditions, c))} />)}
+            </View>
+            {f.conditions.some((c) => !RULES_FOR.includes(c)) && <Text style={s.muted}>Detailed food rules exist only for diabetes, hypertension and high cholesterol so far. For the others, please follow your doctor's or dietitian's plan.</Text>}
+          </View>
+          <View style={{ gap: 8 }}>
+            <K>Allergies</K>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {ALLERGENS.map((a) => <Chip key={a} label={pretty(a)} on={f.allergies.includes(a)} onPress={() => set('allergies', toggle(f.allergies, a))} />)}
+            </View>
+          </View>
+          </EditCard>
+        </Screen>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: Math.max(bottom, 12), backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line, gap: 8 }}>
+          {hasErrors && <Text style={{ color: C.bad, fontFamily: F.bodyMed, fontSize: 13 }}>Fix the highlighted fields to save.</Text>}
+          <Button title={tr('saveProfile')} onPress={save} busy={busy} disabled={hasErrors || !dirty} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <Screen contentContainerStyle={{ gap: 18, paddingBottom: showSaveBar ? 110 : 28 }}>
+      <Screen contentContainerStyle={{ gap: 18, paddingBottom: 28 }}>
         <FadeIn>
           <View style={{ alignItems: 'center', gap: 6, paddingTop: 4 }}>
             <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' }}>
@@ -245,7 +336,7 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             <Text numberOfLines={1} style={{ fontFamily: F.display, fontSize: 24, color: C.fg, marginTop: 4 }}>{f.name.trim() || 'Your name'}</Text>
             <Text numberOfLines={1} style={s.muted}>{email}</Text>
             {pct < 100 ? (
-              <Press accessibilityRole="button" onPress={() => setSheet('about')} style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.warnSoft, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 }}>
+              <Press accessibilityRole="button" onPress={() => setEditing(true)} style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.warnSoft, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 }}>
                 <View style={{ width: 70 }}><FillBar pct={pct} color={C.gold} track="#EBDDA8" height={6} /></View>
                 <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: C.warn }}>{pct}% · {missing.slice(0, 2).join(', ')}{missing.length > 2 ? '…' : ''}</Text>
               </Press>
@@ -256,6 +347,8 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
             )}
           </View>
         </FadeIn>
+
+        <Button kind="tonal" title="Edit profile" onPress={() => setEditing(true)} />
 
         {loaded && targets?.available && (
           <FadeIn delay={60}>
@@ -279,16 +372,19 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         )}
 
         <FadeIn delay={100}>
-          <Group title="About you">
-            <ListRow icon="user" title="Personal" value={summary.about} onPress={() => setSheet('about')} />
-            <ListRow icon="ruler" title="Body" value={summary.body} onPress={() => setSheet('body')} />
-            <ListRow icon="target" title="Goal and activity" value={summary.goal} onPress={() => setSheet('goal')} last />
-          </Group>
-        </FadeIn>
-        <FadeIn delay={140}>
-          <Group title="Food and health">
-            <ListRow icon="bowl" title="Food preferences" value={summary.food} onPress={() => setSheet('food')} />
-            <ListRow icon="heart" title="Conditions and allergies" value={summary.health} onPress={() => setSheet('health')} last />
+          <Group title="Your details">
+            <Detail label="Name" value={f.name.trim()} />
+            <Detail label="Age" value={f.age && `${f.age} years`} />
+            <Detail label="Sex" value={label(SEX, f.sex)} />
+            <Detail label="Height" value={f.height && `${f.height} cm`} />
+            <Detail label="Weight" value={f.weight && `${f.weight} kg`} />
+            <Detail label="BMI" value={bmi && `${bmi.v} · ${bmi.label}`} />
+            <Detail label="Goal" value={label(GOAL, f.goal)} />
+            <Detail label="Activity" value={label(ACTIVITY, f.activity)} />
+            <Detail label="Diet" value={label(DIET, f.diet)} />
+            <Detail label="Cuisine" value={label(REGION, f.region)} />
+            <Detail label="Conditions" value={f.conditions.length ? f.conditions.map(pretty).join(', ') : 'None'} />
+            <Detail label="Allergies" value={f.allergies.length ? f.allergies.map(pretty).join(', ') : 'None'} last />
           </Group>
         </FadeIn>
         <FadeIn delay={180}>
@@ -317,73 +413,11 @@ export default function ProfileScreen({ onLogout, onSaved }: { onLogout: () => v
         <Text style={[s.muted, { textAlign: 'center' }]}>{tr('disclaimer')} · {getBaseUrl().replace('https://', '')}</Text>
       </Screen>
 
-      {showSaveBar && (
-        <SheetIn style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line, gap: 8 }}>
-          {hasErrors && <Text style={{ color: C.bad, fontFamily: F.bodyMed, fontSize: 13 }}>Fix the highlighted fields to save.</Text>}
-          <Button title={saved && !dirty ? tr('saved') : tr('saveProfile')} onPress={save} busy={busy} disabled={hasErrors || (!dirty && saved)} />
-        </SheetIn>
-      )}
 
-      <EditSheet visible={sheet === 'about'} title="Personal" onClose={() => setSheet(null)}>
-        <Field label="Your name" value={f.name} onChangeText={(t) => set('name', t)} maxLength={60} autoCapitalize="words" />
-        <Field label="Age" value={f.age} onChangeText={(t) => set('age', t)} keyboardType="number-pad" maxLength={3} />
-        <Err t={errors.age} />
-        {num(f.age) !== null && (num(f.age) as number) < 18 && <Text style={s.muted}>Under 18: we show food information, but daily targets for young people should come from a paediatrician or dietitian.</Text>}
-        <View style={{ gap: 8 }}><K>Sex (used for calorie estimates)</K><Chips opts={SEX} val={f.sex} set={(k) => set('sex', k)} /></View>
-        {f.sex !== 'male' && f.sex !== null && (
-          <View style={{ gap: 8 }}>
-            <K>Pregnancy or breastfeeding</K>
-            <Chips opts={[{ key: 'none', label: 'Neither' }, { key: 'pregnant', label: 'Pregnant' }, { key: 'breastfeeding', label: 'Breastfeeding' }]} val={f.lifeStage} set={(k) => set('lifeStage', k)} />
-            {f.lifeStage !== 'none' && <Text style={s.muted}>Your needs change a lot right now, so we won't calculate calorie targets. Please follow your doctor's or dietitian's plan.</Text>}
-          </View>
-        )}
-      </EditSheet>
 
-      <EditSheet visible={sheet === 'body'} title="Body" onClose={() => setSheet(null)}>
-        <Field label="Height (cm)" value={f.height} onChangeText={(t) => set('height', t)} keyboardType="decimal-pad" maxLength={5} />
-        <Err t={errors.height} />
-        <Field label="Weight (kg)" value={f.weight} onChangeText={(t) => set('weight', t)} keyboardType="decimal-pad" maxLength={6} />
-        <Err t={errors.weight} />
-        {bmi && (
-          <View style={{ gap: 8, backgroundColor: C.bg, borderRadius: 14, padding: 14 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <K>BMI</K><Text style={{ fontFamily: F.display, fontSize: 26, color: C.fg }}>{bmi.v}</Text>
-            </View>
-            <FillBar pct={bmi.pct} color={bmi.tone} track={C.track} height={6} />
-            <Text style={s.muted}>{bmi.label} (Asian-Indian cut-offs). A rough guide only.</Text>
-          </View>
-        )}
-      </EditSheet>
 
-      <EditSheet visible={sheet === 'goal'} title="Goal and activity" onClose={() => setSheet(null)}>
-        <View style={{ gap: 8 }}><K>Your goal</K><Rows opts={GOAL} val={f.goal} set={(k) => set('goal', k)} /></View>
-        <View style={{ gap: 8 }}><K>How active are you?</K><Rows opts={ACTIVITY} val={f.activity} set={(k) => set('activity', k)} /></View>
-        <Field label="Target weight (kg, optional)" value={f.target} onChangeText={(t) => set('target', t)} keyboardType="decimal-pad" maxLength={6} />
-        <Err t={errors.target} />
-        {goalHint && <Text style={[s.muted, { color: C.warn }]}>{goalHint}</Text>}
-      </EditSheet>
 
-      <EditSheet visible={sheet === 'food'} title="Food preferences" onClose={() => setSheet(null)}>
-        <View style={{ gap: 8 }}><K>Diet</K><Chips opts={DIET} val={f.diet} set={(k) => set('diet', k)} /></View>
-        <View style={{ gap: 8 }}><K>Cuisine you eat most</K><Chips opts={REGION} val={f.region} set={(k) => set('region', k)} /></View>
-      </EditSheet>
 
-      <EditSheet visible={sheet === 'health'} title="Conditions and allergies" onClose={() => setSheet(null)}>
-        <Text style={s.muted}>We use this to flag foods that may not suit you. It is not a diagnosis.</Text>
-        <View style={{ gap: 8 }}>
-          <K>Conditions</K>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {CONDITIONS.map((c) => <Chip key={c} label={pretty(c)} on={f.conditions.includes(c)} onPress={() => set('conditions', toggle(f.conditions, c))} />)}
-          </View>
-          {f.conditions.some((c) => !RULES_FOR.includes(c)) && <Text style={s.muted}>Detailed food rules exist only for diabetes, hypertension and high cholesterol so far. For the others, please follow your doctor's or dietitian's plan.</Text>}
-        </View>
-        <View style={{ gap: 8 }}>
-          <K>Allergies</K>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {ALLERGENS.map((a) => <Chip key={a} label={pretty(a)} on={f.allergies.includes(a)} onPress={() => set('allergies', toggle(f.allergies, a))} />)}
-          </View>
-        </View>
-      </EditSheet>
     </View>
   );
 }
