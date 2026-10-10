@@ -34,6 +34,10 @@ const EN = {
   thinking: 'Thinking…', important: 'Important', sq1: 'What should I cook for dinner?', sq2: 'Is masala dosa ok for me?', sq3: 'Tips for my health goal', sq4: 'How much protein today?',
   tabBasics: 'Basics', tabGoals: 'Goals', tabHealth: 'Health', tabAccount: 'Account', saveProfile: 'Save profile', saved: 'Saved ✓', profileComplete: 'Profile complete',
   shareSummary: 'Share my 7-day food summary', logOut: 'Log out', deleteAccount: 'Delete my account',
+  authHeadline: 'Eat well, without the guesswork', authB1: 'Scan any pack or plate', authB2: 'Advice that fits your health', authB3: 'Works in Hindi and English',
+  welcomeBack: 'Welcome back', createYour: 'Create your account', newHere: 'New here? Create an account', haveOne: 'Already have an account? Log in',
+  pwWeak: 'Weak', pwOk: 'Okay', pwStrong: 'Strong', pwNeed: 'At least 10 characters', badEmail: 'Enter a valid email address', advanced: 'Advanced', serverAddr: 'Server address',
+  privacyNote: 'Your health details stay private to your account. You can delete them any time.',
   language: 'Language', noScoreWhy: 'Not enough data to judge this. Scan its nutrition table.',
 };
 const HI: typeof EN = {
@@ -66,6 +70,10 @@ const HI: typeof EN = {
   thinking: 'सोच रहे हैं…', important: 'ज़रूरी', sq1: 'आज रात खाने में क्या बनाऊँ?', sq2: 'क्या मसाला डोसा मेरे लिए ठीक है?', sq3: 'मेरे लक्ष्य के लिए सुझाव', sq4: 'आज कितना प्रोटीन लिया?',
   tabBasics: 'बुनियादी', tabGoals: 'लक्ष्य', tabHealth: 'सेहत', tabAccount: 'खाता', saveProfile: 'प्रोफ़ाइल सेव करें', saved: 'सेव हो गया ✓', profileComplete: 'प्रोफ़ाइल पूरी',
   shareSummary: 'मेरा 7 दिन का खान-पान सारांश भेजें', logOut: 'लॉग आउट', deleteAccount: 'मेरा खाता हटाएँ',
+  authHeadline: 'सोच-समझकर खाइए', authB1: 'कोई भी पैक या थाली स्कैन करें', authB2: 'आपकी सेहत के हिसाब से सलाह', authB3: 'हिन्दी और अंग्रेज़ी में',
+  welcomeBack: 'वापसी पर स्वागत है', createYour: 'अपना खाता बनाएँ', newHere: 'नए हैं? खाता बनाएँ', haveOne: 'पहले से खाता है? लॉग इन करें',
+  pwWeak: 'कमज़ोर', pwOk: 'ठीक-ठाक', pwStrong: 'मज़बूत', pwNeed: 'कम से कम 10 अक्षर', badEmail: 'सही ईमेल पता लिखें', advanced: 'उन्नत', serverAddr: 'सर्वर का पता',
+  privacyNote: 'आपकी सेहत की जानकारी सिर्फ़ आपके खाते में रहती है। आप इसे कभी भी हटा सकते हैं।',
   language: 'भाषा', noScoreWhy: 'आँकड़े कम हैं। इसकी न्यूट्रिशन टेबल स्कैन करें।',
 };
 const DICT = { en: EN, hi: HI };
